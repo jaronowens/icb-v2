@@ -8,8 +8,9 @@ const logger = require('morgan');
 const cors = require('cors');
 
 const indexRouter = require('./routes/index');
-const usersRouter = require('./routes/users');
+const localRouter = require('./routes/local');
 const collectionRouter = require('./routes/collection');
+const externalRouter = require('./routes/external');
 
 const app = express();
 
@@ -32,8 +33,9 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // Routes
 app.use('/', indexRouter);
-app.use('/users', usersRouter);
+app.use('/local', localRouter);
 app.use('/collection', collectionRouter);
+app.use('/external', externalRouter);
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
