@@ -7,12 +7,13 @@ const cookieParser = require('cookie-parser');
 const logger = require('morgan');
 const cors = require('cors');
 const sqlite3 = require('sqlite3').verbose();
-const { createTableFromDirectory } = require('./repository/mediaNode');
 
 const indexRouter = require('./routes/index');
 const localRouter = require('./routes/local');
 const collectionRouter = require('./routes/collection');
 const externalRouter = require('./routes/external');
+const directories = require('./directories.json');
+const { initializeLocalDB, addLocalMediaToTable } = require('./repository/local');
 
 const app = express();
 
@@ -36,14 +37,14 @@ app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
 // initialize DBs
-// example code to test application flow
-const directory = "F:/Thunder/Pictures/Uplay";
-const dirName = 'testDirectory';
-app.use(`/${dirName}`, express.static(directory));
-createTableFromDirectory(dirName, directory, fs.readdirSync(directory), db);
-db.get(`SELECT * from ${dirName}`, function(err, row) {
-  console.log(row);
+initializeLocalDB(db, true);
+
+directories.forEach(directory => {
+  app.use(`/${directory.name}`, express.static(directory.path));
+  addLocalMediaToTable(directory.name, fs.readdirSync(directory.path), db);
 });
+
+db.close();
 
 // Routes
 app.use('/', indexRouter);
@@ -52,12 +53,12 @@ app.use('/collection', collectionRouter);
 app.use('/external', externalRouter);
 
 // catch 404 and forward to error handler
-app.use(function(req, res, next) {
+app.use(function (req, res, next) {
   next(createError(404));
 });
 
 // error handler
-app.use(function(err, req, res, next) {
+app.use(function (err, req, res, next) {
   // set locals, only providing error in development
   res.locals.message = err.message;
   res.locals.error = req.app.get('env') === 'development' ? err : {};
