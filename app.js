@@ -6,6 +6,8 @@ const path = require('path');
 const cookieParser = require('cookie-parser');
 const logger = require('morgan');
 const cors = require('cors');
+const sqlite3 = require('sqlite3').verbose();
+const { createTableFromDirectory } = require('./repository/mediaNode');
 
 const indexRouter = require('./routes/index');
 const localRouter = require('./routes/local');
@@ -13,6 +15,9 @@ const collectionRouter = require('./routes/collection');
 const externalRouter = require('./routes/external');
 
 const app = express();
+
+// mount DB
+const db = new sqlite3.Database('./db/media.sql');
 
 // set up cors and query parser
 app.use(cors());
@@ -30,6 +35,15 @@ app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
+// initialize DBs
+// example code to test application flow
+const directory = "F:/Thunder/Pictures/Uplay";
+const dirName = 'testDirectory';
+app.use(`/${dirName}`, express.static(directory));
+createTableFromDirectory(dirName, directory, fs.readdirSync(directory), db);
+db.get(`SELECT * from ${dirName}`, function(err, row) {
+  console.log(row);
+});
 
 // Routes
 app.use('/', indexRouter);
