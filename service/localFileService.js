@@ -17,7 +17,6 @@ var isValidFile = function (file) {
 var initializeLocalNode = function (fileDir, fileUrl, nodeId) {
     var nodeExtension = getFileExtension(fileUrl);
     var newMediaNode = {
-        id: nodeId,
         name: fileUrl,
         extension: nodeExtension,
         is_video: (nodeExtension === 'mp4' || nodeExtension === 'webm') ? true : false,
@@ -44,11 +43,10 @@ var initializeLocalNodes = function (fileDir, files) {
 exports.initializeLocalNodes = initializeLocalNodes;
 var convertLocalNode = function (localNode) {
     var newMediaNode = {
-        id: localNode.id,
         name: localNode.name,
         width: 0,
         height: 0,
-        file_ext: localNode.extension,
+        extension: localNode.extension,
         is_video: localNode.is_video,
         source: localNode.source,
         tags: "",

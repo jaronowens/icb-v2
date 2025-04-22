@@ -1,5 +1,4 @@
 interface localFileNode {
-    id: number;
     name: string;
     extension: string,
     is_video: boolean,

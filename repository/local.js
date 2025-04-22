@@ -12,8 +12,9 @@ var initializeLocalDB = function (db, drop) {
             db.run("DROP TABLE IF EXISTS ".concat(tableName));
         }
         console.log('creating table');
-        db.run("CREATE TABLE ".concat(tableName, " (name TEXT, extension TEXT, is_video BOOL, imageURL TEXT, previewURL TEXT, source TEXT)"));
+        db.run("CREATE TABLE ".concat(tableName, " (name TEXT, extension TEXT, is_video BOOL, imageURL TEXT UNIQUE, previewURL TEXT, source TEXT)"));
     });
+    // FOREIGN KEY (mediaID) REFERENCES Media(rowid)
 };
 exports.initializeLocalDB = initializeLocalDB;
 var addLocalMediaToTable = function (directoryName, files, db) {

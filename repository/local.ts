@@ -10,8 +10,9 @@ const initializeLocalDB = (db, drop: boolean = true) => {
             db.run(`DROP TABLE IF EXISTS ${tableName}`);
         }
         console.log('creating table');
-        db.run(`CREATE TABLE ${tableName} (name TEXT, extension TEXT, is_video BOOL, imageURL TEXT, previewURL TEXT, source TEXT)`);
+        db.run(`CREATE TABLE ${tableName} (name TEXT, extension TEXT, is_video BOOL, imageURL TEXT UNIQUE, previewURL TEXT, source TEXT)`);
     });
+    // FOREIGN KEY (mediaID) REFERENCES Media(rowid)
 }
 
 const addLocalMediaToTable = (directoryName: string, files: string[], db) => {

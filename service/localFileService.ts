@@ -20,7 +20,6 @@ const isValidFile = (file: string) => {
 const initializeLocalNode = (fileDir: string, fileUrl: string, nodeId: number) => {
     const nodeExtension: string = getFileExtension(fileUrl);
     const newMediaNode: localFileNode = {
-        id:nodeId,
         name: fileUrl,
         extension: nodeExtension,
         is_video: (nodeExtension === 'mp4' || nodeExtension === 'webm') ? true : false,
@@ -47,11 +46,10 @@ const initializeLocalNodes = (fileDir: string, files: string[]) => {
 
 const convertLocalNode = (localNode: localFileNode) => {
     const newMediaNode: MediaNode = {
-        id: localNode.id,
         name: localNode.name,
         width: 0,
         height: 0,
-        file_ext: localNode.extension,
+        extension: localNode.extension,
         is_video: localNode.is_video,
         source: localNode.source,
         tags: "",
