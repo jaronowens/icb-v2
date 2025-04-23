@@ -17,7 +17,7 @@ const isValidFile = (file: string) => {
     return supportedFileTypes.includes(getFileExtension(file));
 }
 
-const initializeLocalNode = (fileDir: string, fileUrl: string, nodeId: number) => {
+const initializeLocalNode = (fileDir: string, directoryPath: string, fileUrl: string) => {
     const nodeExtension: string = getFileExtension(fileUrl);
     const newMediaNode: localFileNode = {
         name: fileUrl,
@@ -25,21 +25,19 @@ const initializeLocalNode = (fileDir: string, fileUrl: string, nodeId: number) =
         is_video: (nodeExtension === 'mp4' || nodeExtension === 'webm') ? true : false,
         imageURL: `${fileDir}/${fileUrl}`,
         previewURL: `${fileDir}/${fileUrl}`,
-        source: fileDir
+        source: `${directoryPath}/${fileUrl}`
     }
     return newMediaNode;
 }
 
-const initializeLocalNodes = (fileDir: string, files: string[]) => {
+const initializeLocalNodes = (fileDir: string, directoryPath: string, files: string[]) => {
     const initializedNodes: localFileNode[] = [];
-    let index: number = 0;
     files.forEach(file => {
         if (isValidFile(file)) {
-            initializedNodes.push(initializeLocalNode(fileDir, file, index));
+            initializedNodes.push(initializeLocalNode(fileDir, directoryPath, file));
         } else {
             console.log(`Unsupported filetype, skipping ${file}.`);
         }
-        index++;
     });
     return initializedNodes;
 }
@@ -67,4 +65,4 @@ const convertLocalNodes = (localNodes: localFileNode[]) => {
     return convertedNodes;
 }
 
-export { initializeLocalNodes, convertLocalNodes };
+export { initializeLocalNodes };

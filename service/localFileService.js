@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.convertLocalNodes = exports.initializeLocalNodes = void 0;
+exports.initializeLocalNodes = void 0;
 var supportedFileTypes = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'mp4', 'webm'];
 var specialCharacters = ['(', ')', '-', ' '];
 var getFileExtension = function (url) {
@@ -14,7 +14,7 @@ var getFileExtension = function (url) {
 var isValidFile = function (file) {
     return supportedFileTypes.includes(getFileExtension(file));
 };
-var initializeLocalNode = function (fileDir, fileUrl, nodeId) {
+var initializeLocalNode = function (fileDir, directoryPath, fileUrl) {
     var nodeExtension = getFileExtension(fileUrl);
     var newMediaNode = {
         name: fileUrl,
@@ -22,21 +22,19 @@ var initializeLocalNode = function (fileDir, fileUrl, nodeId) {
         is_video: (nodeExtension === 'mp4' || nodeExtension === 'webm') ? true : false,
         imageURL: "".concat(fileDir, "/").concat(fileUrl),
         previewURL: "".concat(fileDir, "/").concat(fileUrl),
-        source: fileDir
+        source: "".concat(directoryPath, "/").concat(fileUrl)
     };
     return newMediaNode;
 };
-var initializeLocalNodes = function (fileDir, files) {
+var initializeLocalNodes = function (fileDir, directoryPath, files) {
     var initializedNodes = [];
-    var index = 0;
     files.forEach(function (file) {
         if (isValidFile(file)) {
-            initializedNodes.push(initializeLocalNode(fileDir, file, index));
+            initializedNodes.push(initializeLocalNode(fileDir, directoryPath, file));
         }
         else {
             console.log("Unsupported filetype, skipping ".concat(file, "."));
         }
-        index++;
     });
     return initializedNodes;
 };
@@ -62,4 +60,3 @@ var convertLocalNodes = function (localNodes) {
     });
     return convertedNodes;
 };
-exports.convertLocalNodes = convertLocalNodes;
