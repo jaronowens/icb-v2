@@ -15,8 +15,9 @@ const initializeLocalDB = (db, drop: boolean = true) => {
     // FOREIGN KEY (mediaID) REFERENCES Media(rowid)
 }
 
-const addLocalMediaToTable = (directoryName: string, directoryPath: string, files: string[], db) => {
+const addLocalMediaToTable = (directoryName: string, directoryPath: string, db, fs) => {
     // create an array of mediaNodes for all valid files in the dirPath
+    const files: string[] = fs.readdirSync(directoryPath);
     const mediaNodes: localFileNode[] = initializeLocalNodes(`${BASE_URL}/${directoryName}`, directoryPath, files);
     // console.log(mediaNodes);
     mediaNodes.forEach(node => {

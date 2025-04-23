@@ -17,8 +17,9 @@ var initializeLocalDB = function (db, drop) {
     // FOREIGN KEY (mediaID) REFERENCES Media(rowid)
 };
 exports.initializeLocalDB = initializeLocalDB;
-var addLocalMediaToTable = function (directoryName, directoryPath, files, db) {
+var addLocalMediaToTable = function (directoryName, directoryPath, db, fs) {
     // create an array of mediaNodes for all valid files in the dirPath
+    var files = fs.readdirSync(directoryPath);
     var mediaNodes = (0, localFileService_1.initializeLocalNodes)("".concat(BASE_URL, "/").concat(directoryName), directoryPath, files);
     // console.log(mediaNodes);
     mediaNodes.forEach(function (node) {

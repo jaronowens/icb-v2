@@ -42,7 +42,7 @@ initializeLocalDB(db, true);
 directories.forEach(directory => {
   try {
     app.use(`/${directory.name}`, express.static(directory.path));
-    addLocalMediaToTable(directory.name, directory.path, fs.readdirSync(directory.path), db);
+    addLocalMediaToTable(directory.name, directory.path, db, fs);
   }
   catch (err) {
     console.error(err.message);
