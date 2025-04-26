@@ -1,9 +1,14 @@
 const express = require('express');
 const router = express.Router();
+const sqlite3 = require('sqlite3').verbose();
+const db = new sqlite3.Database('./db/media.sql');
 
 /* GET local files listing. */
 router.get('/', (req, res, next) => {
-    res.send('respond with a list of all media entries in the database (with optional query parameter filtering)');
+    db.prepare(`SELECT * from Media`)
+    .all(function(err, rows) {
+        res.json(rows);
+    });
 });
 
 /* Questions */
