@@ -7,6 +7,7 @@ const cookieParser = require('cookie-parser');
 const logger = require('morgan');
 const cors = require('cors');
 const sqlite3 = require('sqlite3').verbose();
+const { open } = require('sqlite');
 
 const indexRouter = require('./routes/index');
 const localRouter = require('./routes/local');
@@ -14,11 +15,12 @@ const collectionRouter = require('./routes/collection');
 const externalRouter = require('./routes/external');
 const directories = require('./directories.json');
 const { initializeLocalDB, addLocalMediaToTable } = require('./repository/local');
+const { initializeMediaDB, populateMediaFromSource } = require('./repository/media');
 
 const app = express();
 
 // mount DB
-const db = new sqlite3.Database('./db/media.sql');
+// const db = new sqlite3.Database('./db/media.sqlite3');
 
 // set up cors and query parser
 app.use(cors());
@@ -36,20 +38,26 @@ app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// initialize DBs
-initializeLocalDB(db, true);
+// mount and initialize DBs
 
-directories.forEach(directory => {
-  try {
-    app.use(`/${directory.name}`, express.static(directory.path));
-    addLocalMediaToTable(directory.name, directory.path, db, fs);
-  }
-  catch (err) {
-    console.error(err.message);
-  }
+open({
+  filename: './db/media.sqlite3',
+  driver: sqlite3.Database
+}).then( async (db) => {
+  await initializeLocalDB(db, true);
+  await initializeMediaDB(db, true).then(() => {
+    for (const directory of directories) {
+      try {
+        app.use(`/${directory.name}`, express.static(directory.path));
+        addLocalMediaToTable(directory.name, directory.path, db, fs);
+      }
+      catch (err) {
+        console.error(err.message);
+      }
+    };
+  })
+  await populateMediaFromSource('Local', db);
 });
-
-db.close();
 
 // Routes
 app.use('/', indexRouter);

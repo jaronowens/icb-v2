@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const sqlite3 = require('sqlite3').verbose();
-const db = new sqlite3.Database('./db/media.sql');
+const db = new sqlite3.Database('./db/media.sqlite3');
 
 /* GET local files listing. */
 router.get('/', (req, res, next) => {
