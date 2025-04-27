@@ -45,8 +45,7 @@ var __spreadArray = (this && this.__spreadArray) || function (to, from, pack) {
     return to.concat(ar || Array.prototype.slice.call(from));
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getMedia = exports.populateMediaFromSource = exports.initializeMediaDB = void 0;
-var BASE_URL = 'http://localhost:3000';
+exports.synchronizeMedia = exports.getMedia = exports.populateMediaFromSource = exports.initializeMediaDB = void 0;
 var tableName = 'Media';
 var initializeMediaDB = function (db_1) {
     var args_1 = [];
@@ -149,3 +148,32 @@ var getMedia = function (db_1) {
     });
 };
 exports.getMedia = getMedia;
+var synchronizeMedia = function (db_1) {
+    var args_1 = [];
+    for (var _i = 1; _i < arguments.length; _i++) {
+        args_1[_i - 1] = arguments[_i];
+    }
+    return __awaiter(void 0, __spreadArray([db_1], args_1, true), void 0, function (db, reset) {
+        var query, result;
+        if (reset === void 0) { reset = true; }
+        return __generator(this, function (_a) {
+            switch (_a.label) {
+                case 0:
+                    if (!reset) return [3 /*break*/, 2];
+                    console.log('resetting all linked files');
+                    return [4 /*yield*/, db.run('UPDATE Media SET isMounted = 0;')];
+                case 1:
+                    _a.sent();
+                    _a.label = 2;
+                case 2:
+                    query = "\n    UPDATE Media\n    SET isMounted = 1\n    WHERE rowid IN (\n        SELECT Media.rowid\n        FROM Media\n        LEFT JOIN Local ON Media.imageURL = Local.imageURL\n        WHERE Media.isMounted = 0 AND Local.imageURL IS NOT NULL\n    );\n";
+                    return [4 /*yield*/, db.run(query)];
+                case 3:
+                    result = _a.sent();
+                    console.log("Media table synchronized.");
+                    return [2 /*return*/];
+            }
+        });
+    });
+};
+exports.synchronizeMedia = synchronizeMedia;

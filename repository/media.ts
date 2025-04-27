@@ -48,7 +48,7 @@ const populateMediaFromSource = async (sourceTable: string, db) => {
     }
 }
 
-const getMedia = async (db, sourceTable:string = 'Local',) => {
+const getMedia = async (db, sourceTable: string = 'Local',) => {
     const rows = await db.all(`SELECT * from ${sourceTable} LEFT JOIN ${tableName} ON ${sourceTable}.imageURL = ${tableName}.imageURL`);
 
     // const rows = await db.all(`SELECT * from Media
@@ -63,4 +63,24 @@ const getMedia = async (db, sourceTable:string = 'Local',) => {
     return rows;
 }
 
-export { initializeMediaDB, populateMediaFromSource, getMedia };
+const synchronizeMedia = async (db, reset: boolean = true) => {
+    if (reset) {
+        console.log('resetting all linked files');
+        await db.run('UPDATE Media SET isMounted = 0;');
+    }
+
+    const query = `
+    UPDATE Media
+    SET isMounted = 1
+    WHERE rowid IN (
+        SELECT Media.rowid
+        FROM Media
+        LEFT JOIN Local ON Media.imageURL = Local.imageURL
+        WHERE Media.isMounted = 0 AND Local.imageURL IS NOT NULL
+    );
+`;
+
+    const result = await db.run(query);
+    console.log(`Media table synchronized.`);
+}
+export { initializeMediaDB, populateMediaFromSource, getMedia, synchronizeMedia };

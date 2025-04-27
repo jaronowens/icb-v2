@@ -16,7 +16,7 @@ const externalRouter = require('./routes/external');
 const mediaRouter = require('./routes/media');
 const directories = require('./directories.json');
 const { initializeLocalDB, addLocalMediaToTable } = require('./repository/local');
-const { initializeMediaDB, populateMediaFromSource } = require('./repository/media');
+const { initializeMediaDB, populateMediaFromSource, synchronizeMedia } = require('./repository/media');
 
 const app = express();
 
@@ -51,6 +51,9 @@ open({
         console.error(err.message);
       }
     };
+  })
+  .then(() => {
+    synchronizeMedia(db, true);
   })
   await populateMediaFromSource('Local', db);
 });
