@@ -45,8 +45,7 @@ var __spreadArray = (this && this.__spreadArray) || function (to, from, pack) {
     return to.concat(ar || Array.prototype.slice.call(from));
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.populateMediaFromSource = exports.initializeMediaDB = void 0;
-var localFileService_1 = require("../service/localFileService");
+exports.getLocalMedia = exports.populateMediaFromSource = exports.initializeMediaDB = void 0;
 var BASE_URL = 'http://localhost:3000';
 var tableName = 'Media';
 var initializeMediaDB = function (db_1) {
@@ -68,7 +67,7 @@ var initializeMediaDB = function (db_1) {
                     _a.label = 2;
                 case 2:
                     _a.trys.push([2, 4, , 5]);
-                    console.log('creating table');
+                    console.log('creating media table');
                     return [4 /*yield*/, db.run("CREATE TABLE ".concat(tableName, " (type TEXT, isMounted BOOL, tags TEXT, imageURL TEXT, mediaID INT, userDataID INT,\n                FOREIGN KEY (mediaID) REFERENCES Collections_Media(mediaID),\n                FOREIGN KEY (userDataID) REFERENCES UserData(rowid)\n                )"))];
                 case 3:
                     _a.sent();
@@ -100,7 +99,7 @@ var populateMediaFromSource = function (sourceTable, db) { return __awaiter(void
                 query = "INSERT INTO ".concat(tableName, " (type, isMounted, tags, imageURL, mediaID, userDataID) VALUES ").concat(placeholders);
                 values = rows.flatMap(function (row) { return [
                     sourceTable,
-                    true,
+                    false,
                     (row.tags ? row.tags : null),
                     row.imageURL,
                     null,
@@ -123,16 +122,38 @@ var populateMediaFromSource = function (sourceTable, db) { return __awaiter(void
     });
 }); };
 exports.populateMediaFromSource = populateMediaFromSource;
-var addMediaToTable = function (directoryName, directoryPath, db, fs) {
-    // create an array of mediaNodes for all valid files in the dirPath
-    var files = fs.readdirSync(directoryPath);
-    var mediaNodes = (0, localFileService_1.initializeLocalNodes)("".concat(BASE_URL, "/").concat(directoryName), directoryPath, files);
-    // console.log(mediaNodes);
-    mediaNodes.forEach(function (node) {
-        console.log("creating node for ".concat(node.name));
-        var stmt = db.prepare("INSERT INTO ".concat(tableName, " (name, extension, is_video, imageURL, previewURL, source) VALUES(?, ?, ?, ?, ?, ?)"))
-            .bind(node.name, node.extension, node.is_video, node.imageURL, node.previewURL, node.source)
-            .run();
-        stmt.finalize();
+var getLocalMedia = function (db_1) {
+    var args_1 = [];
+    for (var _i = 1; _i < arguments.length; _i++) {
+        args_1[_i - 1] = arguments[_i];
+    }
+    return __awaiter(void 0, __spreadArray([db_1], args_1, true), void 0, function (db, sourceTable) {
+        var rows, resultRows, _a, rows_1, row, newNode;
+        if (sourceTable === void 0) { sourceTable = 'Local'; }
+        return __generator(this, function (_b) {
+            switch (_b.label) {
+                case 0: return [4 /*yield*/, db.all("SELECT * from ".concat(sourceTable, " LEFT JOIN ").concat(tableName, " ON ").concat(sourceTable, ".imageURL = ").concat(tableName, ".imageURL"))];
+                case 1:
+                    rows = _b.sent();
+                    resultRows = [];
+                    for (_a = 0, rows_1 = rows; _a < rows_1.length; _a++) {
+                        row = rows_1[_a];
+                        newNode = {
+                            name: row.name,
+                            width: 0,
+                            height: 0,
+                            extension: row.extension,
+                            is_video: row.is_video,
+                            source: row.source,
+                            tags: row.tags,
+                            imageURL: row.imageURL,
+                            previewURL: row.imageURL
+                        };
+                        resultRows.push(newNode);
+                    }
+                    return [2 /*return*/, resultRows];
+            }
+        });
     });
 };
+exports.getLocalMedia = getLocalMedia;

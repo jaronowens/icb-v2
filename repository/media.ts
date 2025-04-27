@@ -1,3 +1,5 @@
+import { MediaNode } from "../entity/mediaNode";
+
 const BASE_URL: string = 'http://localhost:3000';
 const tableName: string = 'Media';
 
@@ -7,7 +9,7 @@ const initializeMediaDB = async (db, drop: boolean = false) => {
         await db.run(`DROP TABLE IF EXISTS ${tableName}`);
     }
     try {
-        console.log('creating table');
+        console.log('creating media table');
         await db.run(`CREATE TABLE ${tableName} (type TEXT, isMounted BOOL, tags TEXT, imageURL TEXT, mediaID INT, userDataID INT,
                 FOREIGN KEY (mediaID) REFERENCES Collections_Media(mediaID),
                 FOREIGN KEY (userDataID) REFERENCES UserData(rowid)
@@ -33,7 +35,7 @@ const populateMediaFromSource = async (sourceTable: string, db) => {
     // flatten rows into a single array
     const values = rows.flatMap(row => [
         sourceTable,
-        true,
+        false,
         (row.tags ? row.tags : null),
         row.imageURL,
         null,
@@ -49,5 +51,24 @@ const populateMediaFromSource = async (sourceTable: string, db) => {
     }
 }
 
+const getLocalMedia = async (db, sourceTable:string = 'Local',) => {
+    const rows = await db.all(`SELECT * from ${sourceTable} LEFT JOIN ${tableName} ON ${sourceTable}.imageURL = ${tableName}.imageURL`); 
+    const resultRows:MediaNode[] = [];
+    for(const row of rows) {
+        const newNode:MediaNode = {
+            name: row.name,
+            width: 0,
+            height: 0,
+            extension: row.extension,
+            is_video: row.is_video,
+            source: row.source,
+            tags: row.tags,
+            imageURL: row.imageURL,
+            previewURL: row.imageURL
+        }
+        resultRows.push(newNode);
+    }
+    return resultRows;
+}
 
-export { initializeMediaDB, populateMediaFromSource };
+export { initializeMediaDB, populateMediaFromSource, getLocalMedia };

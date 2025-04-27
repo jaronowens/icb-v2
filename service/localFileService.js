@@ -18,6 +18,8 @@ var initializeLocalNode = function (fileDir, directoryPath, fileUrl) {
     var nodeExtension = getFileExtension(fileUrl);
     var newMediaNode = {
         name: fileUrl,
+        width: 0,
+        height: 0,
         extension: nodeExtension,
         is_video: (nodeExtension === 'mp4' || nodeExtension === 'webm') ? true : false,
         imageURL: "".concat(fileDir, "/").concat(fileUrl),

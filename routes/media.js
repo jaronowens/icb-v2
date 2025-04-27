@@ -1,14 +1,18 @@
 const express = require('express');
+const { getLocalMedia } = require('../repository/media');
 const router = express.Router();
 const sqlite3 = require('sqlite3').verbose();
-const db = new sqlite3.Database('./db/media.sql');
+const { open } = require('sqlite');
 
 /* GET local files listing. */
 router.get('/', (req, res, next) => {
-    db.prepare(`SELECT * from Media`)
-    .all(function(err, rows) {
-        res.json(rows);
-    });
+    open({
+        filename: './db/media.sqlite3',
+        driver: sqlite3.Database
+    }).then(async (db) => {
+        const result = await getLocalMedia(db, 'Local');
+        res.json(result);
+    })
 });
 
 /* Questions */

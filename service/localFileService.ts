@@ -21,6 +21,8 @@ const initializeLocalNode = (fileDir: string, directoryPath: string, fileUrl: st
     const nodeExtension: string = getFileExtension(fileUrl);
     const newMediaNode: localFileNode = {
         name: fileUrl,
+        width: 0,
+        height: 0,
         extension: nodeExtension,
         is_video: (nodeExtension === 'mp4' || nodeExtension === 'webm') ? true : false,
         imageURL: `${fileDir}/${fileUrl}`,

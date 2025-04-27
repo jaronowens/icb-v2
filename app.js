@@ -13,14 +13,12 @@ const indexRouter = require('./routes/index');
 const localRouter = require('./routes/local');
 const collectionRouter = require('./routes/collection');
 const externalRouter = require('./routes/external');
+const mediaRouter = require('./routes/media');
 const directories = require('./directories.json');
 const { initializeLocalDB, addLocalMediaToTable } = require('./repository/local');
 const { initializeMediaDB, populateMediaFromSource } = require('./repository/media');
 
 const app = express();
-
-// mount DB
-// const db = new sqlite3.Database('./db/media.sqlite3');
 
 // set up cors and query parser
 app.use(cors());
@@ -39,7 +37,6 @@ app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
 // mount and initialize DBs
-
 open({
   filename: './db/media.sqlite3',
   driver: sqlite3.Database
@@ -48,7 +45,6 @@ open({
   await initializeMediaDB(db, true).then(() => {
     for (const directory of directories) {
       try {
-        app.use(`/${directory.name}`, express.static(directory.path));
         addLocalMediaToTable(directory.name, directory.path, db, fs);
       }
       catch (err) {
@@ -59,11 +55,17 @@ open({
   await populateMediaFromSource('Local', db);
 });
 
+// set up CDN
+directories.forEach(directory => {
+  app.use(`/${directory.name}`, express.static(directory.path));
+})
+
 // Routes
 app.use('/', indexRouter);
 app.use('/local', localRouter);
 app.use('/collection', collectionRouter);
 app.use('/external', externalRouter);
+app.use('/media', mediaRouter);
 
 // catch 404 and forward to error handler
 app.use(function (req, res, next) {
