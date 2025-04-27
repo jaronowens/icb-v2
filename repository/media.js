@@ -45,7 +45,7 @@ var __spreadArray = (this && this.__spreadArray) || function (to, from, pack) {
     return to.concat(ar || Array.prototype.slice.call(from));
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getLocalMedia = exports.populateMediaFromSource = exports.initializeMediaDB = void 0;
+exports.getMedia = exports.populateMediaFromSource = exports.initializeMediaDB = void 0;
 var BASE_URL = 'http://localhost:3000';
 var tableName = 'Media';
 var initializeMediaDB = function (db_1) {
@@ -122,38 +122,30 @@ var populateMediaFromSource = function (sourceTable, db) { return __awaiter(void
     });
 }); };
 exports.populateMediaFromSource = populateMediaFromSource;
-var getLocalMedia = function (db_1) {
+var getMedia = function (db_1) {
     var args_1 = [];
     for (var _i = 1; _i < arguments.length; _i++) {
         args_1[_i - 1] = arguments[_i];
     }
     return __awaiter(void 0, __spreadArray([db_1], args_1, true), void 0, function (db, sourceTable) {
-        var rows, resultRows, _a, rows_1, row, newNode;
+        var rows;
         if (sourceTable === void 0) { sourceTable = 'Local'; }
-        return __generator(this, function (_b) {
-            switch (_b.label) {
+        return __generator(this, function (_a) {
+            switch (_a.label) {
                 case 0: return [4 /*yield*/, db.all("SELECT * from ".concat(sourceTable, " LEFT JOIN ").concat(tableName, " ON ").concat(sourceTable, ".imageURL = ").concat(tableName, ".imageURL"))];
                 case 1:
-                    rows = _b.sent();
-                    resultRows = [];
-                    for (_a = 0, rows_1 = rows; _a < rows_1.length; _a++) {
-                        row = rows_1[_a];
-                        newNode = {
-                            name: row.name,
-                            width: 0,
-                            height: 0,
-                            extension: row.extension,
-                            is_video: row.is_video,
-                            source: row.source,
-                            tags: row.tags,
-                            imageURL: row.imageURL,
-                            previewURL: row.imageURL
-                        };
-                        resultRows.push(newNode);
-                    }
-                    return [2 /*return*/, resultRows];
+                    rows = _a.sent();
+                    // const rows = await db.all(`SELECT * from Media
+                    //     FULL JOIN Local
+                    //         ON Media.imageURL = Local.imageURL
+                    //     FULL JOIN External
+                    //         ON Media.imageUrl = External.imageURL
+                    //     FULl JOIN UserData
+                    //         ON Media.userDataID = UserData.rowid
+                    //         `);
+                    return [2 /*return*/, rows];
             }
         });
     });
 };
-exports.getLocalMedia = getLocalMedia;
+exports.getMedia = getMedia;

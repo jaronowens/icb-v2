@@ -1,6 +1,5 @@
 import { localFileNode } from "../entity/localFileNode";
 import { initializeLocalNodes } from "../service/localFileService";
-import { populateMediaFromSource } from "./media";
 const BASE_URL: string = 'http://localhost:3000';
 const tableName: string = 'Local';
 

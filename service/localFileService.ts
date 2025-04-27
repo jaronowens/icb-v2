@@ -1,4 +1,3 @@
-import { MediaNode } from "../entity/mediaNode";
 import { localFileNode } from "../entity/localFileNode";
 
 const supportedFileTypes: string[] = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'mp4', 'webm'];
@@ -42,29 +41,6 @@ const initializeLocalNodes = (fileDir: string, directoryPath: string, files: str
         }
     });
     return initializedNodes;
-}
-
-const convertLocalNode = (localNode: localFileNode) => {
-    const newMediaNode: MediaNode = {
-        name: localNode.name,
-        width: 0,
-        height: 0,
-        extension: localNode.extension,
-        is_video: localNode.is_video,
-        source: localNode.source,
-        tags: "",
-        imageURL: localNode.imageURL,
-        previewURL: localNode.imageURL
-    }
-    return newMediaNode;
-}
-
-const convertLocalNodes = (localNodes: localFileNode[]) => {
-    const convertedNodes: MediaNode[] = [];
-    localNodes.forEach(node => {
-        convertedNodes.push(convertLocalNode(node));
-    });
-    return convertedNodes;
 }
 
 export { initializeLocalNodes };

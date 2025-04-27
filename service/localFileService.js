@@ -41,24 +41,3 @@ var initializeLocalNodes = function (fileDir, directoryPath, files) {
     return initializedNodes;
 };
 exports.initializeLocalNodes = initializeLocalNodes;
-var convertLocalNode = function (localNode) {
-    var newMediaNode = {
-        name: localNode.name,
-        width: 0,
-        height: 0,
-        extension: localNode.extension,
-        is_video: localNode.is_video,
-        source: localNode.source,
-        tags: "",
-        imageURL: localNode.imageURL,
-        previewURL: localNode.imageURL
-    };
-    return newMediaNode;
-};
-var convertLocalNodes = function (localNodes) {
-    var convertedNodes = [];
-    localNodes.forEach(function (node) {
-        convertedNodes.push(convertLocalNode(node));
-    });
-    return convertedNodes;
-};

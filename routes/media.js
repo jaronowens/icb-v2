@@ -3,6 +3,7 @@ const { getLocalMedia } = require('../repository/media');
 const router = express.Router();
 const sqlite3 = require('sqlite3').verbose();
 const { open } = require('sqlite');
+const { getMediaNodes } = require('../service/mediaService');
 
 /* GET local files listing. */
 router.get('/', (req, res, next) => {
@@ -10,7 +11,7 @@ router.get('/', (req, res, next) => {
         filename: './db/media.sqlite3',
         driver: sqlite3.Database
     }).then(async (db) => {
-        const result = await getLocalMedia(db, 'Local');
+        const result = await getMediaNodes(db);
         res.json(result);
     })
 });

@@ -1,6 +1,3 @@
-import { MediaNode } from "../entity/mediaNode";
-
-const BASE_URL: string = 'http://localhost:3000';
 const tableName: string = 'Media';
 
 const initializeMediaDB = async (db, drop: boolean = false) => {
@@ -51,24 +48,19 @@ const populateMediaFromSource = async (sourceTable: string, db) => {
     }
 }
 
-const getLocalMedia = async (db, sourceTable:string = 'Local',) => {
-    const rows = await db.all(`SELECT * from ${sourceTable} LEFT JOIN ${tableName} ON ${sourceTable}.imageURL = ${tableName}.imageURL`); 
-    const resultRows:MediaNode[] = [];
-    for(const row of rows) {
-        const newNode:MediaNode = {
-            name: row.name,
-            width: 0,
-            height: 0,
-            extension: row.extension,
-            is_video: row.is_video,
-            source: row.source,
-            tags: row.tags,
-            imageURL: row.imageURL,
-            previewURL: row.imageURL
-        }
-        resultRows.push(newNode);
-    }
-    return resultRows;
+const getMedia = async (db, sourceTable:string = 'Local',) => {
+    const rows = await db.all(`SELECT * from ${sourceTable} LEFT JOIN ${tableName} ON ${sourceTable}.imageURL = ${tableName}.imageURL`);
+
+    // const rows = await db.all(`SELECT * from Media
+    //     FULL JOIN Local
+    //         ON Media.imageURL = Local.imageURL
+    //     FULL JOIN External
+    //         ON Media.imageUrl = External.imageURL
+    //     FULl JOIN UserData
+    //         ON Media.userDataID = UserData.rowid
+    //         `);
+
+    return rows;
 }
 
-export { initializeMediaDB, populateMediaFromSource, getLocalMedia };
+export { initializeMediaDB, populateMediaFromSource, getMedia };
