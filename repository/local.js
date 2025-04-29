@@ -45,16 +45,15 @@ var __spreadArray = (this && this.__spreadArray) || function (to, from, pack) {
     return to.concat(ar || Array.prototype.slice.call(from));
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.addLocalNodes = exports.initializeLocalDB = void 0;
-var localFileService_1 = require("../service/localFileService");
-var BASE_URL = 'http://localhost:3000';
+exports.insertLocalNodes = exports.createLocalTable = void 0;
 var tableName = 'Local';
-var initializeLocalDB = function (db_1) {
+var createLocalTable = function (db_1) {
     var args_1 = [];
     for (var _i = 1; _i < arguments.length; _i++) {
         args_1[_i - 1] = arguments[_i];
     }
     return __awaiter(void 0, __spreadArray([db_1], args_1, true), void 0, function (db, drop) {
+        var err_1;
         if (drop === void 0) { drop = true; }
         return __generator(this, function (_a) {
             switch (_a.label) {
@@ -66,27 +65,27 @@ var initializeLocalDB = function (db_1) {
                     _a.sent();
                     _a.label = 2;
                 case 2:
-                    console.log('creating table');
-                    return [4 /*yield*/, db.run("CREATE TABLE ".concat(tableName, " (name TEXT, extension TEXT, is_video BOOL, imageURL TEXT UNIQUE, previewURL TEXT, source TEXT, mediaID INT,\n        FOREIGN KEY (mediaID) REFERENCES Media(rowid))"))];
+                    _a.trys.push([2, 4, , 5]);
+                    console.log("creating ".concat(tableName, " table"));
+                    return [4 /*yield*/, db.run("CREATE TABLE ".concat(tableName, " (name TEXT, extension TEXT, is_video BOOL, imageURL TEXT UNIQUE, previewURL TEXT, source TEXT, mediaID INT,\n            FOREIGN KEY (mediaID) REFERENCES Media(rowid))"))];
                 case 3:
                     _a.sent();
-                    return [2 /*return*/];
+                    return [3 /*break*/, 5];
+                case 4:
+                    err_1 = _a.sent();
+                    console.error("Error creating ".concat(tableName, " table: ").concat(err_1.message));
+                    return [3 /*break*/, 5];
+                case 5: return [2 /*return*/];
             }
         });
     });
 };
-exports.initializeLocalDB = initializeLocalDB;
-var addLocalNodes = function (directoryName, directoryPath, db, fs) { return __awaiter(void 0, void 0, void 0, function () {
-    var files, mediaNodes, placeholders, query, values, err_1;
+exports.createLocalTable = createLocalTable;
+var insertLocalNodes = function (directoryPath, mediaNodes, db) { return __awaiter(void 0, void 0, void 0, function () {
+    var placeholders, query, values, err_2;
     return __generator(this, function (_a) {
         switch (_a.label) {
             case 0:
-                files = fs.readdirSync(directoryPath);
-                mediaNodes = (0, localFileService_1.initializeLocalNodes)("".concat(BASE_URL, "/").concat(directoryName), directoryPath, files);
-                if (mediaNodes.length === 0) {
-                    console.log('No local nodes to insert from ', directoryPath);
-                    return [2 /*return*/];
-                }
                 placeholders = mediaNodes.map(function () { return '(?, ?, ?, ?, ?, ?)'; }).join(', ');
                 query = "INSERT INTO ".concat(tableName, " (name, extension, is_video, imageURL, previewURL, source) VALUES ").concat(placeholders);
                 values = mediaNodes.flatMap(function (node) { return [
@@ -106,15 +105,15 @@ var addLocalNodes = function (directoryName, directoryPath, db, fs) { return __a
                 _a.sent();
                 return [3 /*break*/, 4];
             case 3:
-                err_1 = _a.sent();
-                console.error('Error performing bulk insert:', err_1.message);
+                err_2 = _a.sent();
+                console.error('Error performing bulk insert:', err_2.message);
                 return [3 /*break*/, 4];
             case 4: return [2 /*return*/];
         }
     });
 }); };
-exports.addLocalNodes = addLocalNodes;
-var getLocalMedia = function (db) { return __awaiter(void 0, void 0, void 0, function () {
+exports.insertLocalNodes = insertLocalNodes;
+var readLocalNodes = function (db) { return __awaiter(void 0, void 0, void 0, function () {
     return __generator(this, function (_a) {
         switch (_a.label) {
             case 0: return [4 /*yield*/, db.all('SELECT * from Local')];

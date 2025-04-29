@@ -15,7 +15,7 @@ const collectionRouter = require('./routes/collection');
 const externalRouter = require('./routes/external');
 const mediaRouter = require('./routes/media');
 const directories = require('./directories.json');
-const { initializeLocalDB, addLocalNodes } = require('./repository/local');
+const { initializeLocalDB, createLocalNodes } = require('./service/localFileService');
 const { initializeMediaDB, populateMediaFromSource, synchronizeMedia } = require('./repository/media');
 
 const app = express();
@@ -45,7 +45,7 @@ open({
   await initializeMediaDB(db, true).then(() => {
     for (const directory of directories) {
       try {
-        addLocalNodes(directory.name, directory.path, db, fs);
+        createLocalNodes(directory.name, directory.path, db, fs);
       }
       catch (err) {
         console.error(err.message);
