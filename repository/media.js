@@ -123,6 +123,26 @@ var populateMediaFromSource = function (sourceTable, db) { return __awaiter(void
     });
 }); };
 exports.populateMediaFromSource = populateMediaFromSource;
+var syncUnlinkedLocalNodes = function (db) { return __awaiter(void 0, void 0, void 0, function () {
+    var query, err_3;
+    return __generator(this, function (_a) {
+        switch (_a.label) {
+            case 0:
+                _a.trys.push([0, 2, , 3]);
+                query = "\n            UPDATE Local\n            SET mediaID = (\n                SELECT Media.rowid\n                FROM Media\n                WHERE Media.imageURL = Local.imageURL\n            )\n            WHERE Local.mediaID = -1;\n        ";
+                return [4 /*yield*/, db.run(query)];
+            case 1:
+                _a.sent();
+                console.log('Unlinked local nodes synchronized successfully.');
+                return [3 /*break*/, 3];
+            case 2:
+                err_3 = _a.sent();
+                console.error('Error synchronizing unlinked local nodes:', err_3.message);
+                return [3 /*break*/, 3];
+            case 3: return [2 /*return*/];
+        }
+    });
+}); };
 var getMedia = function (db_1) {
     var args_1 = [];
     for (var _i = 1; _i < arguments.length; _i++) {

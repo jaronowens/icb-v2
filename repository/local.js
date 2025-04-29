@@ -45,7 +45,7 @@ var __spreadArray = (this && this.__spreadArray) || function (to, from, pack) {
     return to.concat(ar || Array.prototype.slice.call(from));
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.insertLocalNodes = exports.createLocalTable = void 0;
+exports.readLocalNodes = exports.insertLocalNodes = exports.createLocalTable = void 0;
 var tableName = 'Local';
 var createLocalTable = function (db_1) {
     var args_1 = [];
@@ -67,7 +67,7 @@ var createLocalTable = function (db_1) {
                 case 2:
                     _a.trys.push([2, 4, , 5]);
                     console.log("creating ".concat(tableName, " table"));
-                    return [4 /*yield*/, db.run("CREATE TABLE ".concat(tableName, " (name TEXT, extension TEXT, is_video BOOL, imageURL TEXT UNIQUE, previewURL TEXT, source TEXT, mediaID INT,\n            FOREIGN KEY (mediaID) REFERENCES Media(rowid))"))];
+                    return [4 /*yield*/, db.run("CREATE TABLE ".concat(tableName, " (name TEXT, extension TEXT, is_video BOOL, imageURL TEXT UNIQUE, previewURL TEXT, source TEXT, mediaID INT)"))];
                 case 3:
                     _a.sent();
                     return [3 /*break*/, 5];
@@ -81,25 +81,26 @@ var createLocalTable = function (db_1) {
     });
 };
 exports.createLocalTable = createLocalTable;
-var insertLocalNodes = function (directoryPath, mediaNodes, db) { return __awaiter(void 0, void 0, void 0, function () {
+var insertLocalNodes = function (directoryPath, localNodes, db) { return __awaiter(void 0, void 0, void 0, function () {
     var placeholders, query, values, err_2;
     return __generator(this, function (_a) {
         switch (_a.label) {
             case 0:
-                placeholders = mediaNodes.map(function () { return '(?, ?, ?, ?, ?, ?)'; }).join(', ');
-                query = "INSERT INTO ".concat(tableName, " (name, extension, is_video, imageURL, previewURL, source) VALUES ").concat(placeholders);
-                values = mediaNodes.flatMap(function (node) { return [
+                placeholders = localNodes.map(function () { return '(?, ?, ?, ?, ?, ?, ?)'; }).join(', ');
+                query = "INSERT INTO ".concat(tableName, " (name, extension, is_video, imageURL, previewURL, source, mediaID) VALUES ").concat(placeholders);
+                values = localNodes.flatMap(function (node) { return [
                     node.name,
                     node.extension,
                     node.is_video,
                     node.imageURL,
                     node.previewURL,
                     node.source,
+                    -1
                 ]; });
                 _a.label = 1;
             case 1:
                 _a.trys.push([1, 3, , 4]);
-                console.log("Inserting ".concat(mediaNodes.length, " local nodes from ").concat(directoryPath, " into the database."));
+                console.log("Inserting ".concat(localNodes.length, " local nodes from ").concat(directoryPath, " into the database."));
                 return [4 /*yield*/, db.run(query, values)];
             case 2:
                 _a.sent();
@@ -121,3 +122,4 @@ var readLocalNodes = function (db) { return __awaiter(void 0, void 0, void 0, fu
         }
     });
 }); };
+exports.readLocalNodes = readLocalNodes;

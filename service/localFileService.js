@@ -116,7 +116,7 @@ var initializeLocalDB = function (db_1) {
 };
 exports.initializeLocalDB = initializeLocalDB;
 var createLocalNodes = function (directoryName, directoryPath, db, fs) { return __awaiter(void 0, void 0, void 0, function () {
-    var files, localNodes;
+    var files, localNodes, err_2;
     return __generator(this, function (_a) {
         switch (_a.label) {
             case 0:
@@ -126,10 +126,18 @@ var createLocalNodes = function (directoryName, directoryPath, db, fs) { return 
                     console.log('No local nodes to insert from ', directoryPath);
                     return [2 /*return*/];
                 }
-                return [4 /*yield*/, (0, local_1.insertLocalNodes)(directoryPath, localNodes, db)];
+                _a.label = 1;
             case 1:
+                _a.trys.push([1, 3, , 4]);
+                return [4 /*yield*/, (0, local_1.insertLocalNodes)(directoryPath, localNodes, db)];
+            case 2:
                 _a.sent();
-                return [2 /*return*/];
+                return [3 /*break*/, 4];
+            case 3:
+                err_2 = _a.sent();
+                console.error("Error accessing database: ".concat(err_2.message));
+                return [3 /*break*/, 4];
+            case 4: return [2 /*return*/];
         }
     });
 }); };

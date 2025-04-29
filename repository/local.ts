@@ -8,32 +8,31 @@ const createLocalTable = async (db, drop: boolean = true) => {
     }
     try {
         console.log(`creating ${tableName} table`);
-        await db.run(`CREATE TABLE ${tableName} (name TEXT, extension TEXT, is_video BOOL, imageURL TEXT UNIQUE, previewURL TEXT, source TEXT, mediaID INT,
-            FOREIGN KEY (mediaID) REFERENCES Media(rowid))`);
+        await db.run(`CREATE TABLE ${tableName} (name TEXT, extension TEXT, is_video BOOL, imageURL TEXT UNIQUE, previewURL TEXT, source TEXT, mediaID INT)`);
     }
     catch (err) {
         console.error(`Error creating ${tableName} table: ${err.message}`);
     }
 }
 
-const insertLocalNodes = async (directoryPath: string, mediaNodes: localFileNode[], db) => {
-
+const insertLocalNodes = async (directoryPath: string, localNodes: localFileNode[], db) => {
     // Construct a single bulk insert query
-    const placeholders = mediaNodes.map(() => '(?, ?, ?, ?, ?, ?)').join(', ');
-    const query = `INSERT INTO ${tableName} (name, extension, is_video, imageURL, previewURL, source) VALUES ${placeholders}`;
+    const placeholders = localNodes.map(() => '(?, ?, ?, ?, ?, ?, ?)').join(', ');
+    const query = `INSERT INTO ${tableName} (name, extension, is_video, imageURL, previewURL, source, mediaID) VALUES ${placeholders}`;
 
-    // Flatten the mediaNodes array into a single array of values
-    const values = mediaNodes.flatMap(node => [
+    // Flatten the localNodes array into a single array of values
+    const values = localNodes.flatMap(node => [
         node.name,
         node.extension,
         node.is_video,
         node.imageURL,
         node.previewURL,
         node.source,
+        -1
     ]);
 
     try {
-        console.log(`Inserting ${mediaNodes.length} local nodes from ${directoryPath} into the database.`);
+        console.log(`Inserting ${localNodes.length} local nodes from ${directoryPath} into the database.`);
         await db.run(query, values);
     } catch (err) {
         console.error('Error performing bulk insert:', err.message);
@@ -45,4 +44,4 @@ const readLocalNodes = async (db) => {
 }
 
 
-export { createLocalTable, insertLocalNodes };
+export { createLocalTable, insertLocalNodes, readLocalNodes };

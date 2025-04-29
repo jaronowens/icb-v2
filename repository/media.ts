@@ -50,6 +50,24 @@ const populateMediaFromSource = async (sourceTable: string, db) => {
     }
 }
 
+const syncUnlinkedLocalNodes = async (db) => {
+    try {
+        const query = `
+            UPDATE Local
+            SET mediaID = (
+                SELECT Media.rowid
+                FROM Media
+                WHERE Media.imageURL = Local.imageURL
+            )
+            WHERE Local.mediaID = -1;
+        `;
+        await db.run(query);
+        console.log('Unlinked local nodes synchronized successfully.');
+    } catch (err) {
+        console.error('Error synchronizing unlinked local nodes:', err.message);
+    }
+};
+
 const getMedia = async (db, sourceTable: string = 'Local',) => {
     const rows = await db.all(`SELECT Media.rowid, * from ${sourceTable} LEFT JOIN ${tableName} ON ${sourceTable}.imageURL = ${tableName}.imageURL`);
 
