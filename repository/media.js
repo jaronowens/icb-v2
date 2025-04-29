@@ -45,7 +45,7 @@ var __spreadArray = (this && this.__spreadArray) || function (to, from, pack) {
     return to.concat(ar || Array.prototype.slice.call(from));
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.synchronizeMedia = exports.getMedia = exports.populateMediaFromSource = exports.initializeMediaDB = void 0;
+exports.syncUnlinkedLocalNodes = exports.synchronizeMedia = exports.getMedia = exports.populateMediaFromSource = exports.initializeMediaDB = void 0;
 var tableName = 'Media';
 var initializeMediaDB = function (db_1) {
     var args_1 = [];
@@ -87,10 +87,9 @@ var populateMediaFromSource = function (sourceTable, db) { return __awaiter(void
         switch (_a.label) {
             case 0:
                 console.log('trying to find unlinked local nodes from', sourceTable);
-                return [4 /*yield*/, db.all("SELECT * FROM ".concat(sourceTable))];
+                return [4 /*yield*/, db.all("SELECT Media.ROWID, * from Media FULL JOIN Local ON Media.imageURL = Local.imageURL WHERE Local.mediaID = -1")];
             case 1:
                 rows = _a.sent();
-                // const rows = await db.all(`SELECT ${tableName}.rowid, * from ${sourceTable} LEFT JOIN ${tableName} ON ${sourceTable}.imageURL = ${tableName}.imageURL`);
                 if (rows.length === 0) {
                     console.log("No unlinked local nodes found in ".concat(sourceTable));
                     return [2 /*return*/];
@@ -143,6 +142,7 @@ var syncUnlinkedLocalNodes = function (db) { return __awaiter(void 0, void 0, vo
         }
     });
 }); };
+exports.syncUnlinkedLocalNodes = syncUnlinkedLocalNodes;
 var getMedia = function (db_1) {
     var args_1 = [];
     for (var _i = 1; _i < arguments.length; _i++) {

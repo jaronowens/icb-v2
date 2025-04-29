@@ -18,8 +18,8 @@ const initializeMediaDB = async (db, drop: boolean = false) => {
 
 const populateMediaFromSource = async (sourceTable: string, db) => {
     console.log('trying to find unlinked local nodes from', sourceTable);
-    const rows = await db.all(`SELECT * FROM ${sourceTable}`);
-    // const rows = await db.all(`SELECT ${tableName}.rowid, * from ${sourceTable} LEFT JOIN ${tableName} ON ${sourceTable}.imageURL = ${tableName}.imageURL`);
+    // const rows = await db.all(`SELECT * FROM ${sourceTable}`);
+    const rows = await db.all(`SELECT Media.ROWID, * from Media FULL JOIN Local ON Media.imageURL = Local.imageURL WHERE Local.mediaID = -1`);
     if (rows.length === 0) {
         console.log(`No unlinked local nodes found in ${sourceTable}`);
         return;
@@ -103,4 +103,4 @@ const synchronizeMedia = async (db, reset: boolean = true) => {
     const result = await db.run(query);
     console.log(`Media table synchronized.`);
 }
-export { initializeMediaDB, populateMediaFromSource, getMedia, synchronizeMedia };
+export { initializeMediaDB, populateMediaFromSource, getMedia, synchronizeMedia, syncUnlinkedLocalNodes };
