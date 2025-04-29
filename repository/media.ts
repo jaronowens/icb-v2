@@ -7,8 +7,8 @@ const initializeMediaDB = async (db, drop: boolean = false) => {
     }
     try {
         console.log('creating media table');
-        await db.run(`CREATE TABLE ${tableName} (type TEXT, isMounted BOOL, tags TEXT, imageURL TEXT, mediaID INT, userDataID INT,
-                FOREIGN KEY (mediaID) REFERENCES Collections_Media(mediaID),
+        await db.run(`CREATE TABLE ${tableName} (type TEXT, isMounted BOOL, tags TEXT, imageURL TEXT, sourceID INT, mediaCollectionID INT, userDataID INT,
+                FOREIGN KEY (mediaCollectionID) REFERENCES Collections_Media(mediaID),
                 FOREIGN KEY (userDataID) REFERENCES UserData(rowid)
                 )`);
     } catch (err) {
@@ -17,24 +17,26 @@ const initializeMediaDB = async (db, drop: boolean = false) => {
 }
 
 const populateMediaFromSource = async (sourceTable: string, db) => {
-    console.log('trying to find imageURLs from', sourceTable);
+    console.log('trying to find unlinked local nodes from', sourceTable);
     const rows = await db.all(`SELECT * FROM ${sourceTable}`);
+    // const rows = await db.all(`SELECT ${tableName}.rowid, * from ${sourceTable} LEFT JOIN ${tableName} ON ${sourceTable}.imageURL = ${tableName}.imageURL`);
     if (rows.length === 0) {
-        console.log(`No local nodes found in ${sourceTable}`);
+        console.log(`No unlinked local nodes found in ${sourceTable}`);
         return;
     }
     // constructing bulk query
     /* this feels vaguely hallucinatory to me? like what is the point of mapping a string with no variables? */
     /* the only thing I can think of is that it implicitly draws the length, but i feel like it could just reference rows.length maybe */
-    const placeholders = rows.map(() => '(?, ?, ?, ?, ?, ?)').join(', ');
-    const query = `INSERT INTO ${tableName} (type, isMounted, tags, imageURL, mediaID, userDataID) VALUES ${placeholders}`;
+    const placeholders = rows.map(() => '(?, ?, ?, ?, ?, ?, ?)').join(', ');
+    const query = `INSERT INTO ${tableName} (type, isMounted, tags, imageURL, sourceID, mediaCollectionID, userDataID) VALUES ${placeholders}`;
 
     // flatten rows into a single array
     const values = rows.flatMap(row => [
         sourceTable,
-        false,
+        true,
         (row.tags ? row.tags : null),
         row.imageURL,
+        row.rowid,
         null,
         null
     ]);
@@ -49,7 +51,7 @@ const populateMediaFromSource = async (sourceTable: string, db) => {
 }
 
 const getMedia = async (db, sourceTable: string = 'Local',) => {
-    const rows = await db.all(`SELECT * from ${sourceTable} LEFT JOIN ${tableName} ON ${sourceTable}.imageURL = ${tableName}.imageURL`);
+    const rows = await db.all(`SELECT Media.rowid, * from ${sourceTable} LEFT JOIN ${tableName} ON ${sourceTable}.imageURL = ${tableName}.imageURL`);
 
     // const rows = await db.all(`SELECT * from Media
     //     FULL JOIN Local
@@ -70,15 +72,15 @@ const synchronizeMedia = async (db, reset: boolean = true) => {
     }
 
     const query = `
-    UPDATE Media
-    SET isMounted = 1
-    WHERE rowid IN (
-        SELECT Media.rowid
-        FROM Media
-        LEFT JOIN Local ON Media.imageURL = Local.imageURL
-        WHERE Media.isMounted = 0 AND Local.imageURL IS NOT NULL
-    );
-`;
+        UPDATE Media
+        SET isMounted = 1
+        WHERE rowid IN (
+            SELECT Media.rowid
+            FROM Media
+            LEFT JOIN Local ON Media.imageURL = Local.imageURL
+            WHERE Media.isMounted = 0 AND Local.imageURL IS NOT NULL
+        );
+    `;
 
     const result = await db.run(query);
     console.log(`Media table synchronized.`);

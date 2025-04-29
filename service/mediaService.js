@@ -49,6 +49,7 @@ var getMediaNodes = function (db) { return __awaiter(void 0, void 0, void 0, fun
                 for (_i = 0, rows_1 = rows; _i < rows_1.length; _i++) {
                     row = rows_1[_i];
                     newNode = {
+                        id: row.rowid,
                         name: row.name,
                         width: 0,
                         height: 0,

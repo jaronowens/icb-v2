@@ -9,10 +9,11 @@ const initializeLocalDB = async (db, drop: boolean = true) => {
         await db.run(`DROP TABLE IF EXISTS ${tableName}`);
     }
     console.log('creating table');
-    await db.run(`CREATE TABLE ${tableName} (name TEXT, extension TEXT, is_video BOOL, imageURL TEXT UNIQUE, previewURL TEXT, source TEXT)`);
+    await db.run(`CREATE TABLE ${tableName} (name TEXT, extension TEXT, is_video BOOL, imageURL TEXT UNIQUE, previewURL TEXT, source TEXT, mediaID INT,
+        FOREIGN KEY (mediaID) REFERENCES Media(rowid))`);
 }
 
-const addLocalMediaToTable = async (directoryName: string, directoryPath: string, db, fs) => {
+const addLocalNodes = async (directoryName: string, directoryPath: string, db, fs) => {
     // Create an array of mediaNodes for all valid files in the directory
     const files: string[] = fs.readdirSync(directoryPath);
     const mediaNodes: localFileNode[] = initializeLocalNodes(`${BASE_URL}/${directoryName}`, directoryPath, files);
@@ -49,4 +50,4 @@ const getLocalMedia = async (db) => {
 }
 
 
-export { initializeLocalDB, addLocalMediaToTable };
+export { initializeLocalDB, addLocalNodes };

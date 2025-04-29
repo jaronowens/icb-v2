@@ -1,4 +1,5 @@
 interface MediaNode {
+    id: number;
     name: string;
     width: number;
     height: number;

@@ -67,7 +67,7 @@ var initializeMediaDB = function (db_1) {
                 case 2:
                     _a.trys.push([2, 4, , 5]);
                     console.log('creating media table');
-                    return [4 /*yield*/, db.run("CREATE TABLE ".concat(tableName, " (type TEXT, isMounted BOOL, tags TEXT, imageURL TEXT, mediaID INT, userDataID INT,\n                FOREIGN KEY (mediaID) REFERENCES Collections_Media(mediaID),\n                FOREIGN KEY (userDataID) REFERENCES UserData(rowid)\n                )"))];
+                    return [4 /*yield*/, db.run("CREATE TABLE ".concat(tableName, " (type TEXT, isMounted BOOL, tags TEXT, imageURL TEXT, sourceID INT, mediaCollectionID INT, userDataID INT,\n                FOREIGN KEY (mediaCollectionID) REFERENCES Collections_Media(mediaID),\n                FOREIGN KEY (userDataID) REFERENCES UserData(rowid)\n                )"))];
                 case 3:
                     _a.sent();
                     return [3 /*break*/, 5];
@@ -86,21 +86,23 @@ var populateMediaFromSource = function (sourceTable, db) { return __awaiter(void
     return __generator(this, function (_a) {
         switch (_a.label) {
             case 0:
-                console.log('trying to find imageURLs from', sourceTable);
+                console.log('trying to find unlinked local nodes from', sourceTable);
                 return [4 /*yield*/, db.all("SELECT * FROM ".concat(sourceTable))];
             case 1:
                 rows = _a.sent();
+                // const rows = await db.all(`SELECT ${tableName}.rowid, * from ${sourceTable} LEFT JOIN ${tableName} ON ${sourceTable}.imageURL = ${tableName}.imageURL`);
                 if (rows.length === 0) {
-                    console.log("No local nodes found in ".concat(sourceTable));
+                    console.log("No unlinked local nodes found in ".concat(sourceTable));
                     return [2 /*return*/];
                 }
-                placeholders = rows.map(function () { return '(?, ?, ?, ?, ?, ?)'; }).join(', ');
-                query = "INSERT INTO ".concat(tableName, " (type, isMounted, tags, imageURL, mediaID, userDataID) VALUES ").concat(placeholders);
+                placeholders = rows.map(function () { return '(?, ?, ?, ?, ?, ?, ?)'; }).join(', ');
+                query = "INSERT INTO ".concat(tableName, " (type, isMounted, tags, imageURL, sourceID, mediaCollectionID, userDataID) VALUES ").concat(placeholders);
                 values = rows.flatMap(function (row) { return [
                     sourceTable,
-                    false,
+                    true,
                     (row.tags ? row.tags : null),
                     row.imageURL,
+                    row.rowid,
                     null,
                     null
                 ]; });
@@ -131,7 +133,7 @@ var getMedia = function (db_1) {
         if (sourceTable === void 0) { sourceTable = 'Local'; }
         return __generator(this, function (_a) {
             switch (_a.label) {
-                case 0: return [4 /*yield*/, db.all("SELECT * from ".concat(sourceTable, " LEFT JOIN ").concat(tableName, " ON ").concat(sourceTable, ".imageURL = ").concat(tableName, ".imageURL"))];
+                case 0: return [4 /*yield*/, db.all("SELECT Media.rowid, * from ".concat(sourceTable, " LEFT JOIN ").concat(tableName, " ON ").concat(sourceTable, ".imageURL = ").concat(tableName, ".imageURL"))];
                 case 1:
                     rows = _a.sent();
                     // const rows = await db.all(`SELECT * from Media
@@ -166,7 +168,7 @@ var synchronizeMedia = function (db_1) {
                     _a.sent();
                     _a.label = 2;
                 case 2:
-                    query = "\n    UPDATE Media\n    SET isMounted = 1\n    WHERE rowid IN (\n        SELECT Media.rowid\n        FROM Media\n        LEFT JOIN Local ON Media.imageURL = Local.imageURL\n        WHERE Media.isMounted = 0 AND Local.imageURL IS NOT NULL\n    );\n";
+                    query = "\n        UPDATE Media\n        SET isMounted = 1\n        WHERE rowid IN (\n            SELECT Media.rowid\n            FROM Media\n            LEFT JOIN Local ON Media.imageURL = Local.imageURL\n            WHERE Media.isMounted = 0 AND Local.imageURL IS NOT NULL\n        );\n    ";
                     return [4 /*yield*/, db.run(query)];
                 case 3:
                     result = _a.sent();

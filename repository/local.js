@@ -45,7 +45,7 @@ var __spreadArray = (this && this.__spreadArray) || function (to, from, pack) {
     return to.concat(ar || Array.prototype.slice.call(from));
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.addLocalMediaToTable = exports.initializeLocalDB = void 0;
+exports.addLocalNodes = exports.initializeLocalDB = void 0;
 var localFileService_1 = require("../service/localFileService");
 var BASE_URL = 'http://localhost:3000';
 var tableName = 'Local';
@@ -67,7 +67,7 @@ var initializeLocalDB = function (db_1) {
                     _a.label = 2;
                 case 2:
                     console.log('creating table');
-                    return [4 /*yield*/, db.run("CREATE TABLE ".concat(tableName, " (name TEXT, extension TEXT, is_video BOOL, imageURL TEXT UNIQUE, previewURL TEXT, source TEXT)"))];
+                    return [4 /*yield*/, db.run("CREATE TABLE ".concat(tableName, " (name TEXT, extension TEXT, is_video BOOL, imageURL TEXT UNIQUE, previewURL TEXT, source TEXT, mediaID INT,\n        FOREIGN KEY (mediaID) REFERENCES Media(rowid))"))];
                 case 3:
                     _a.sent();
                     return [2 /*return*/];
@@ -76,7 +76,7 @@ var initializeLocalDB = function (db_1) {
     });
 };
 exports.initializeLocalDB = initializeLocalDB;
-var addLocalMediaToTable = function (directoryName, directoryPath, db, fs) { return __awaiter(void 0, void 0, void 0, function () {
+var addLocalNodes = function (directoryName, directoryPath, db, fs) { return __awaiter(void 0, void 0, void 0, function () {
     var files, mediaNodes, placeholders, query, values, err_1;
     return __generator(this, function (_a) {
         switch (_a.label) {
@@ -113,7 +113,7 @@ var addLocalMediaToTable = function (directoryName, directoryPath, db, fs) { ret
         }
     });
 }); };
-exports.addLocalMediaToTable = addLocalMediaToTable;
+exports.addLocalNodes = addLocalNodes;
 var getLocalMedia = function (db) { return __awaiter(void 0, void 0, void 0, function () {
     return __generator(this, function (_a) {
         switch (_a.label) {
