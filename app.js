@@ -16,7 +16,7 @@ const externalRouter = require('./routes/external');
 const mediaRouter = require('./routes/media');
 const directories = require('./directories.json');
 const { initializeLocalDB, createLocalNodes } = require('./service/localFileService');
-const { initializeMediaDB, populateMediaFromSource, synchronizeMedia, syncUnlinkedLocalNodes } = require('./repository/media');
+const { initializeMediaDB, populateMediaFromSource, synchronizeMedia } = require('./repository/media');
 
 const app = express();
 
@@ -42,7 +42,7 @@ open({
   driver: sqlite3.Database
 }).then( async (db) => {
   await initializeLocalDB(db, true);
-  await initializeMediaDB(db, false).then(() => {
+  await initializeMediaDB(db, true).then(() => {
     for (const directory of directories) {
       try {
         createLocalNodes(directory.name, directory.path, db, fs);
@@ -52,8 +52,7 @@ open({
       }
     };
   })
-  .then(async () => {
-    syncUnlinkedLocalNodes(db);
+  .then(() => {
     synchronizeMedia(db, true);
   })
   await populateMediaFromSource('Local', db);
