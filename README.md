@@ -10,13 +10,22 @@ The API uses Express.js for server logic, and a simple Sqlite database to store 
 
 ## Usage and available scripts
 
+``npm run build``
+
+Deletes `/build`, compiles all Typescript (and the plain Javascript files) into `/build` with the same directory structure as the project root, then copies runtime assets (`bin/www`, `directories.json`, `views/`, `public/`) into it. The build fails without emitting anything if there are type errors.
+
 ``npm start``
 
-This runs the current built version of icb in the terminal.
+Runs a fresh build (via `prestart`), then starts the server from `build/bin/www`.
+
+``npm run clean``
+
+Deletes the `/build` directory.
 
 ## Explanations
 This project is very much a work in progress, and as such has a few messy choices and stubbed functions that will be cleaned up or expanded upon.
 
 ### Use of both Javascript and Typescript
-The project is primarily written in Typescript, but runs as Javascript to keep the Express/Sqlite3 integration simpler. If you encounter two files with the same name in the same directory (e.g. `mediaService.js` and `mediaService.ts`), the JS file is the compiled one and should not be edited directly. Instead, compile the TS and overwrite the JS file.
-The most notable exception to this is `app.js`, which is the root of the project. This code should be edited directly.
+The project is primarily written in Typescript, but runs as Javascript to keep the Express/Sqlite3 integration simpler. Some files (`app.js`, `bin/www`, `routes/`, `util/`) are still plain Javascript and should be edited directly in the source tree, alongside the `.ts` files.
+
+Compiled output lives only in `/build`, which is git-ignored and regenerated on every build. Never edit files in `/build`. Changes to `directories.json`, `views/`, or `public/` are copied at build time, so they take effect on the next `npm start`.

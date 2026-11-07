@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "rootDir": ".",
+    "outDir": "build",
+    "allowJs": true,
+    "checkJs": false,
+    "strict": false,
+    "noEmitOnError": true,
+    "skipLibCheck": true,
+    "types": ["node"]
+  },
+  "include": [
+    "app.js",
+    "entity/**/*",
+    "repository/**/*",
+    "service/**/*",
+    "routes/**/*",
+    "util/**/*"
+  ]
+}
