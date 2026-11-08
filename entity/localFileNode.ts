@@ -5,6 +5,7 @@ interface localFileNode {
     height: number,
     is_video: boolean,
     imageURL: string;
+    imageHash: string;
     previewURL: string;
     source: string;
 }

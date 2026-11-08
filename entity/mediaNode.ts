@@ -8,6 +8,7 @@ interface MediaNode {
     source: string;
     tags: string;
     imageURL: string;
+    imageHash: string;
     previewURL: string;
 }
 

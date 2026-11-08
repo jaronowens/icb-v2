@@ -9,7 +9,7 @@ const getMediaNodes = async (db) => {
     const resultRows: MediaNode[] = [];
     for (const row of rows) {
         const newNode: MediaNode = {
-            id: row.rowid,
+            id: row.id,
             name: row.name,
             width: 0,
             height: 0,
@@ -18,7 +18,8 @@ const getMediaNodes = async (db) => {
             source: row.source,
             tags: row.tags,
             imageURL: row.imageURL,
-            previewURL: row.imageURL
+            imageHash: row.imageHash,
+            previewURL: row.previewURL
         }
         resultRows.push(newNode);
     }

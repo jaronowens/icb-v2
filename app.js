@@ -16,7 +16,7 @@ const externalRouter = require('./routes/external');
 const mediaRouter = require('./routes/media');
 const directories = require('./directories.json');
 const { initializeLocalDB, createLocalNodes } = require('./service/localFileService');
-const { initializeMediaDB, populateMediaFromSource, synchronizeMedia } = require('./repository/media');
+const { initializeMediaDB, populateMediaFromSource, syncUnlinkedLocalNodes, synchronizeMedia } = require('./repository/media');
 
 const app = express();
 
@@ -40,22 +40,24 @@ app.use(express.static(path.join(__dirname, 'public')));
 open({
   filename: './db/media.sqlite3',
   driver: sqlite3.Database
-}).then( async (db) => {
+}).then(async (db) => {
   await initializeLocalDB(db, true);
-  await initializeMediaDB(db, true).then(() => {
-    for (const directory of directories) {
-      try {
-        createLocalNodes(directory.name, directory.path, db, fs);
-      }
-      catch (err) {
-        console.error(err.message);
-      }
-    };
-  })
-  .then(() => {
-    synchronizeMedia(db, true);
-  })
+  await initializeMediaDB(db, true);
+  // Each step depends on the previous one finishing, so everything is awaited in order
+  for (const directory of directories) {
+    try {
+      await createLocalNodes(directory.name, directory.path, db, fs);
+    }
+    catch (err) {
+      console.error(err.message);
+    }
+  }
   await populateMediaFromSource('Local', db);
+  await syncUnlinkedLocalNodes(db);
+  await synchronizeMedia(db, true);
+  console.log('Database ready');
+}).catch((err) => {
+  console.error('Database initialization failed:', err);
 });
 
 // set up CDN

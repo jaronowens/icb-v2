@@ -1,5 +1,14 @@
 const tableName: string = 'Media';
 
+/* Table names can't be bound as SQL parameters, so only allow known source tables to be interpolated. */
+const SOURCE_TABLES: string[] = ['Local'];
+
+const assertSourceTable = (sourceTable: string) => {
+    if (!SOURCE_TABLES.includes(sourceTable)) {
+        throw new Error(`Unsupported source table: ${sourceTable}`);
+    }
+}
+
 const initializeMediaDB = async (db, drop: boolean = false) => {
     if (drop) {
         console.log('about to try to drop table if exists, tableName: ', tableName);
@@ -7,7 +16,8 @@ const initializeMediaDB = async (db, drop: boolean = false) => {
     }
     try {
         console.log('creating media table');
-        await db.run(`CREATE TABLE ${tableName} (type TEXT, isMounted BOOL, tags TEXT, imageURL TEXT, sourceID INT, mediaCollectionID INT, userDataID INT,
+        // imageHash is UNIQUE: one Media row per distinct image, shared by every duplicate file
+        await db.run(`CREATE TABLE ${tableName} (type TEXT, isMounted BOOL, tags TEXT, imageURL TEXT, imageHash TEXT NOT NULL UNIQUE, sourceID INT, mediaCollectionID INT, userDataID INT,
                 FOREIGN KEY (mediaCollectionID) REFERENCES Collections_Media(mediaID),
                 FOREIGN KEY (userDataID) REFERENCES UserData(rowid)
                 )`);
@@ -16,40 +26,33 @@ const initializeMediaDB = async (db, drop: boolean = false) => {
     }
 }
 
+/**
+ * Creates one Media row for each distinct image hash in the source table that doesn't have one yet.
+ * The file with the lowest rowid for each hash becomes the Media row's representative (sourceID / imageURL).
+ */
 const populateMediaFromSource = async (sourceTable: string, db) => {
-    console.log('trying to find unlinked local nodes from', sourceTable);
-    const rows = await db.all(`SELECT * FROM ${sourceTable}`);
-    // const rows = await db.all(`SELECT ${tableName}.rowid, * from ${sourceTable} LEFT JOIN ${tableName} ON ${sourceTable}.imageURL = ${tableName}.imageURL`);
-    if (rows.length === 0) {
-        console.log(`No unlinked local nodes found in ${sourceTable}`);
-        return;
-    }
-    // constructing bulk query
-    /* this feels vaguely hallucinatory to me? like what is the point of mapping a string with no variables? */
-    /* the only thing I can think of is that it implicitly draws the length, but i feel like it could just reference rows.length maybe */
-    const placeholders = rows.map(() => '(?, ?, ?, ?, ?, ?, ?)').join(', ');
-    const query = `INSERT INTO ${tableName} (type, isMounted, tags, imageURL, sourceID, mediaCollectionID, userDataID) VALUES ${placeholders}`;
+    assertSourceTable(sourceTable);
+    console.log('creating media nodes for new image hashes from', sourceTable);
 
-    // flatten rows into a single array
-    const values = rows.flatMap(row => [
-        sourceTable,
-        true,
-        (row.tags ? row.tags : null),
-        row.imageURL,
-        row.rowid,
-        null,
-        null
-    ]);
+    // SQLite takes bare columns (imageURL) from the same row MIN(rowid) picked, so the representative is deterministic.
+    const query = `
+        INSERT INTO ${tableName} (type, isMounted, tags, imageURL, imageHash, sourceID, mediaCollectionID, userDataID)
+        SELECT ?, 1, NULL, imageURL, imageHash, MIN(rowid), NULL, NULL
+        FROM ${sourceTable}
+        WHERE imageHash NOT IN (SELECT imageHash FROM ${tableName})
+        GROUP BY imageHash;
+    `;
 
     try {
-        console.log(`Creating ${rows.length} media nodes from ${sourceTable}`);
-        await db.run(query, values);
+        const result = await db.run(query, [sourceTable]);
+        console.log(`Created ${result.changes} media nodes from ${sourceTable}`);
     }
     catch (err) {
-        console.error('Error performing bulk insert:', err.message);
+        console.error('Error populating media from source:', err.message);
     }
 }
 
+/* Links Local rows to the Media row with the same image hash. Rows with no match keep mediaID = -1. */
 const syncUnlinkedLocalNodes = async (db) => {
     try {
         const query = `
@@ -57,28 +60,26 @@ const syncUnlinkedLocalNodes = async (db) => {
             SET mediaID = (
                 SELECT Media.rowid
                 FROM Media
-                WHERE Media.imageURL = Local.imageURL
+                WHERE Media.imageHash = Local.imageHash
             )
-            WHERE Local.mediaID = -1;
+            WHERE Local.mediaID = -1
+              AND EXISTS (SELECT 1 FROM Media WHERE Media.imageHash = Local.imageHash);
         `;
-        await db.run(query);
-        console.log('Unlinked local nodes synchronized successfully.');
+        const result = await db.run(query);
+        console.log(`Linked ${result.changes} local nodes to media.`);
     } catch (err) {
         console.error('Error synchronizing unlinked local nodes:', err.message);
     }
 };
 
-const getMedia = async (db, sourceTable: string = 'Local',) => {
-    const rows = await db.all(`SELECT Media.rowid, * from ${sourceTable} LEFT JOIN ${tableName} ON ${sourceTable}.imageURL = ${tableName}.imageURL`);
-
-    // const rows = await db.all(`SELECT * from Media
-    //     FULL JOIN Local
-    //         ON Media.imageURL = Local.imageURL
-    //     FULL JOIN External
-    //         ON Media.imageUrl = External.imageURL
-    //     FULl JOIN UserData
-    //         ON Media.userDataID = UserData.rowid
-    //         `);
+/* Returns one entry per Media row, using its representative Local file for names and URLs. */
+const getMedia = async (db) => {
+    const rows = await db.all(`
+        SELECT Media.rowid AS id, Media.imageHash, Media.tags,
+               Local.name, Local.extension, Local.is_video, Local.imageURL, Local.previewURL, Local.source
+        FROM ${tableName}
+        JOIN Local ON Local.rowid = Media.sourceID;
+    `);
 
     return rows;
 }
@@ -92,15 +93,11 @@ const synchronizeMedia = async (db, reset: boolean = true) => {
     const query = `
         UPDATE Media
         SET isMounted = 1
-        WHERE rowid IN (
-            SELECT Media.rowid
-            FROM Media
-            LEFT JOIN Local ON Media.imageURL = Local.imageURL
-            WHERE Media.isMounted = 0 AND Local.imageURL IS NOT NULL
-        );
+        WHERE isMounted = 0
+          AND EXISTS (SELECT 1 FROM Local WHERE Local.imageHash = Media.imageHash);
     `;
 
     const result = await db.run(query);
-    console.log(`Media table synchronized.`);
+    console.log(`Media table synchronized, ${result.changes} media nodes mounted.`);
 }
-export { initializeMediaDB, populateMediaFromSource, getMedia, synchronizeMedia };
+export { initializeMediaDB, populateMediaFromSource, syncUnlinkedLocalNodes, getMedia, synchronizeMedia };
