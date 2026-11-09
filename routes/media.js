@@ -1,17 +1,13 @@
 const express = require('express');
 const { getLocalMedia } = require('../repository/media');
 const router = express.Router();
-const sqlite3 = require('sqlite3').verbose();
-const { open } = require('sqlite');
 const { getMediaNodes } = require('../service/mediaService');
 
 /* GET local files listing. */
 // Express 5 passes a rejected promise from an async handler to the error handler (a 500), instead of crashing
 router.get('/', async (req, res) => {
-    const db = await open({
-        filename: './db/media.sqlite3',
-        driver: sqlite3.Database
-    });
+    // the app's shared connection, opened in app.js
+    const db = await req.app.locals.db;
     res.json(await getMediaNodes(db));
 });
 

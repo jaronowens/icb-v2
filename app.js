@@ -48,10 +48,15 @@ app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
 // mount and initialize DBs
-open({
+// One connection for the whole app. Routes get it with `await req.app.locals.db`. It's stored as a promise,
+// so a request that arrives before the connection is open waits for it, and gets a 500 if opening failed.
+const dbConnection = open({
   filename: './db/media.sqlite3',
   driver: sqlite3.Database
-}).then(async (db) => {
+});
+app.locals.db = dbConnection;
+
+dbConnection.then(async (db) => {
   await migrate(db);
   // Each step depends on the previous one finishing, so everything is awaited in order:
   // all Local changes first, then Media rows for new hashes, linking, re-pointing sources, and mounting last.
