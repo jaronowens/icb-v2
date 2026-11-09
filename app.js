@@ -15,8 +15,10 @@ const collectionRouter = require('./routes/collection');
 const externalRouter = require('./routes/external');
 const mediaRouter = require('./routes/media');
 const directories = require('./directories.json');
-const { initializeLocalDB, createLocalNodes } = require('./service/localFileService');
-const { initializeMediaDB, populateMediaFromSource, syncUnlinkedLocalNodes, synchronizeMedia } = require('./repository/media');
+const { migrate } = require('./repository/schema');
+const { syncDirectory } = require('./service/localFileService');
+const { deleteLocalNodesOutsideDirectories } = require('./repository/local');
+const { populateMediaFromSource, syncUnlinkedLocalNodes, refreshMediaSources, synchronizeMedia } = require('./repository/media');
 
 const app = express();
 
@@ -41,19 +43,22 @@ open({
   filename: './db/media.sqlite3',
   driver: sqlite3.Database
 }).then(async (db) => {
-  await initializeLocalDB(db, true);
-  await initializeMediaDB(db, true);
-  // Each step depends on the previous one finishing, so everything is awaited in order
+  await migrate(db);
+  // Each step depends on the previous one finishing, so everything is awaited in order:
+  // all Local changes first, then Media rows for new hashes, linking, re-pointing sources, and mounting last.
   for (const directory of directories) {
     try {
-      await createLocalNodes(directory.name, directory.path, db, fs);
+      await syncDirectory(directory.name, directory.path, db, fs);
     }
     catch (err) {
-      console.error(err.message);
+      console.error(`Failed to sync ${directory.path}:`, err.message);
     }
   }
+  // Directories that couldn't be read are still in directories.json, so their rows are kept
+  await deleteLocalNodesOutsideDirectories(db, directories.map(directory => directory.path));
   await populateMediaFromSource('Local', db);
   await syncUnlinkedLocalNodes(db);
+  await refreshMediaSources(db);
   await synchronizeMedia(db, true);
   console.log('Database ready');
 }).catch((err) => {

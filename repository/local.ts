@@ -1,56 +1,106 @@
 import { localFileNode } from "../entity/localFileNode";
 const tableName: string = 'Local';
 
-/* Rows per INSERT statement. 500 rows * 8 columns stays well under SQLite's bound-parameter limit. */
-const INSERT_CHUNK_SIZE: number = 500;
+/* Rows per statement. 500 rows * 11 columns stays well under SQLite's bound-parameter limit (32766). */
+const CHUNK_SIZE: number = 500;
 
-const createLocalTable = async (db, drop: boolean = true) => {
-    if (drop) {
-        console.log('about to try to drop table if exists, tableName: ', tableName);
-        await db.run(`DROP TABLE IF EXISTS ${tableName}`);
-    }
-    try {
-        console.log(`creating ${tableName} table`);
-        await db.run(`CREATE TABLE ${tableName} (name TEXT, extension TEXT, is_video BOOL, imageURL TEXT UNIQUE, previewURL TEXT, source TEXT, imageHash TEXT NOT NULL, mediaID INT)`);
-        // Not unique: duplicate files are allowed here and are merged at the Media level
-        await db.run(`CREATE INDEX IF NOT EXISTS idx_local_imageHash ON ${tableName}(imageHash)`);
-    }
-    catch (err) {
-        console.error(`Error creating ${tableName} table: ${err.message}`);
-    }
+/* Local rows for one directory, with just the columns startup sync needs to classify files. */
+const readLocalNodesForDirectory = async (db, directoryPath: string) => {
+    return db.all(
+        `SELECT id, source, size, mtimeMs, imageHash, imageURL FROM ${tableName} WHERE directoryPath = ?`,
+        [directoryPath]
+    );
 }
 
-const insertLocalNodes = async (directoryPath: string, localNodes: localFileNode[], db) => {
-    console.log(`Inserting ${localNodes.length} local nodes from ${directoryPath} into the database.`);
-    try {
-        await db.run('BEGIN');
-        for (let i = 0; i < localNodes.length; i += INSERT_CHUNK_SIZE) {
-            const chunk = localNodes.slice(i, i + INSERT_CHUNK_SIZE);
-            const placeholders = chunk.map(() => '(?, ?, ?, ?, ?, ?, ?, ?)').join(', ');
-            const query = `INSERT INTO ${tableName} (name, extension, is_video, imageURL, previewURL, source, imageHash, mediaID) VALUES ${placeholders}`;
+/* Inserts new nodes as unlinked (mediaID = -1). Doesn't open its own transaction: the caller runs it inside one. */
+const insertLocalNodes = async (db, localNodes: localFileNode[]) => {
+    for (let i = 0; i < localNodes.length; i += CHUNK_SIZE) {
+        const chunk = localNodes.slice(i, i + CHUNK_SIZE);
+        const placeholders = chunk.map(() => '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').join(', ');
+        const query = `INSERT INTO ${tableName} (name, extension, is_video, directoryPath, source, imageURL, previewURL, size, mtimeMs, imageHash, mediaID) VALUES ${placeholders}`;
 
-            const values = chunk.flatMap(node => [
-                node.name,
-                node.extension,
-                node.is_video,
-                node.imageURL,
-                node.previewURL,
-                node.source,
-                node.imageHash,
-                -1
-            ]);
-            await db.run(query, values);
-        }
-        await db.run('COMMIT');
-    } catch (err) {
-        console.error('Error performing bulk insert, rolling back:', err.message);
-        await db.run('ROLLBACK');
+        const values = chunk.flatMap(node => [
+            node.name,
+            node.extension,
+            node.is_video,
+            node.directoryPath,
+            node.source,
+            node.imageURL,
+            node.previewURL,
+            node.size,
+            node.mtimeMs,
+            node.imageHash,
+            -1
+        ]);
+        await db.run(query, values);
     }
 };
 
-const readLocalNodes = async (db) => {
-    return (await db.all('SELECT * from Local'));
+/* Runs one prepared statement for each item, then finalizes it. */
+const runForEach = async <T>(db, query: string, items: T[], params: (item: T) => any[]) => {
+    if (items.length === 0) {
+        return;
+    }
+    const statement = await db.prepare(query);
+    try {
+        for (const item of items) {
+            await statement.run(params(item));
+        }
+    } finally {
+        await statement.finalize();
+    }
 }
 
+/* Stores a re-hashed file's new hash, size, mtime and URLs, and unlinks it so it gets re-linked to Media. */
+const updateChangedLocalNodes = async (db, localNodes: localFileNode[]) => {
+    await runForEach(db,
+        `UPDATE ${tableName} SET name = ?, imageURL = ?, previewURL = ?, imageHash = ?, size = ?, mtimeMs = ?, mediaID = -1 WHERE source = ?`,
+        localNodes,
+        node => [node.name, node.imageURL, node.previewURL, node.imageHash, node.size, node.mtimeMs, node.source]
+    );
+}
 
-export { createLocalTable, insertLocalNodes, readLocalNodes };
+/* Updates names and URLs for unchanged files whose directory `name` changed. */
+const updateLocalNodeURLs = async (db, localNodes: localFileNode[]) => {
+    await runForEach(db,
+        `UPDATE ${tableName} SET name = ?, imageURL = ?, previewURL = ? WHERE source = ?`,
+        localNodes,
+        node => [node.name, node.imageURL, node.previewURL, node.source]
+    );
+}
+
+const deleteLocalNodes = async (db, sources: string[]) => {
+    for (let i = 0; i < sources.length; i += CHUNK_SIZE) {
+        const chunk = sources.slice(i, i + CHUNK_SIZE);
+        const placeholders = chunk.map(() => '?').join(', ');
+        await db.run(`DELETE FROM ${tableName} WHERE source IN (${placeholders})`, chunk);
+    }
+}
+
+/* Deletes rows from directories that are no longer in directories.json. An empty list deletes every row. */
+const deleteLocalNodesOutsideDirectories = async (db, directoryPaths: string[]) => {
+    let result;
+    if (directoryPaths.length === 0) {
+        result = await db.run(`DELETE FROM ${tableName}`);
+    } else {
+        const placeholders = directoryPaths.map(() => '?').join(', ');
+        result = await db.run(`DELETE FROM ${tableName} WHERE directoryPath NOT IN (${placeholders})`, directoryPaths);
+    }
+    if (result.changes > 0) {
+        console.log(`Removed ${result.changes} local nodes from directories no longer in directories.json`);
+    }
+}
+
+const readLocalNodes = async (db) => {
+    return (await db.all(`SELECT * from ${tableName}`));
+}
+
+export {
+    readLocalNodesForDirectory,
+    insertLocalNodes,
+    updateChangedLocalNodes,
+    updateLocalNodeURLs,
+    deleteLocalNodes,
+    deleteLocalNodesOutsideDirectories,
+    readLocalNodes,
+};

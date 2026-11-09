@@ -9,35 +9,17 @@ const assertSourceTable = (sourceTable: string) => {
     }
 }
 
-const initializeMediaDB = async (db, drop: boolean = false) => {
-    if (drop) {
-        console.log('about to try to drop table if exists, tableName: ', tableName);
-        await db.run(`DROP TABLE IF EXISTS ${tableName}`);
-    }
-    try {
-        console.log('creating media table');
-        // imageHash is UNIQUE: one Media row per distinct image, shared by every duplicate file
-        await db.run(`CREATE TABLE ${tableName} (type TEXT, isMounted BOOL, tags TEXT, imageURL TEXT, imageHash TEXT NOT NULL UNIQUE, sourceID INT, mediaCollectionID INT, userDataID INT,
-                FOREIGN KEY (mediaCollectionID) REFERENCES Collections_Media(mediaID),
-                FOREIGN KEY (userDataID) REFERENCES UserData(rowid)
-                )`);
-    } catch (err) {
-        console.error(err.message);
-    }
-}
-
 /**
  * Creates one Media row for each distinct image hash in the source table that doesn't have one yet.
- * The file with the lowest rowid for each hash becomes the Media row's representative (sourceID / imageURL).
+ * The file with the lowest id for each hash becomes the Media row's representative (sourceID).
  */
 const populateMediaFromSource = async (sourceTable: string, db) => {
     assertSourceTable(sourceTable);
     console.log('creating media nodes for new image hashes from', sourceTable);
 
-    // SQLite takes bare columns (imageURL) from the same row MIN(rowid) picked, so the representative is deterministic.
     const query = `
-        INSERT INTO ${tableName} (type, isMounted, tags, imageURL, imageHash, sourceID, mediaCollectionID, userDataID)
-        SELECT ?, 1, NULL, imageURL, imageHash, MIN(rowid), NULL, NULL
+        INSERT INTO ${tableName} (type, isMounted, tags, imageHash, sourceID, mediaCollectionID, userDataID)
+        SELECT ?, 1, NULL, imageHash, MIN(id), NULL, NULL
         FROM ${sourceTable}
         WHERE imageHash NOT IN (SELECT imageHash FROM ${tableName})
         GROUP BY imageHash;
@@ -58,7 +40,7 @@ const syncUnlinkedLocalNodes = async (db) => {
         const query = `
             UPDATE Local
             SET mediaID = (
-                SELECT Media.rowid
+                SELECT Media.id
                 FROM Media
                 WHERE Media.imageHash = Local.imageHash
             )
@@ -72,13 +54,28 @@ const syncUnlinkedLocalNodes = async (db) => {
     }
 };
 
-/* Returns one entry per Media row, using its representative Local file for names and URLs. */
+/**
+ * Points every Media row at the lowest-id Local file that still has its hash, or NULL if there are none.
+ * Runs over all Media each start: one indexed query is cheaper than tracking which rows went stale.
+ */
+const refreshMediaSources = async (db) => {
+    // IS NOT handles NULLs, so only rows whose representative actually changed are written
+    const result = await db.run(`
+        UPDATE ${tableName}
+        SET sourceID = (SELECT MIN(Local.id) FROM Local WHERE Local.imageHash = Media.imageHash)
+        WHERE sourceID IS NOT (SELECT MIN(Local.id) FROM Local WHERE Local.imageHash = Media.imageHash);
+    `);
+    console.log(`Re-pointed sources for ${result.changes} media nodes.`);
+}
+
+/* Returns one entry per mounted Media row, using its representative Local file for names and URLs. */
 const getMedia = async (db) => {
     const rows = await db.all(`
-        SELECT Media.rowid AS id, Media.imageHash, Media.tags,
+        SELECT Media.id AS id, Media.imageHash, Media.tags,
                Local.name, Local.extension, Local.is_video, Local.imageURL, Local.previewURL, Local.source
         FROM ${tableName}
-        JOIN Local ON Local.rowid = Media.sourceID;
+        JOIN Local ON Local.id = Media.sourceID
+        WHERE Media.isMounted = 1;
     `);
 
     return rows;
@@ -100,4 +97,4 @@ const synchronizeMedia = async (db, reset: boolean = true) => {
     const result = await db.run(query);
     console.log(`Media table synchronized, ${result.changes} media nodes mounted.`);
 }
-export { initializeMediaDB, populateMediaFromSource, syncUnlinkedLocalNodes, getMedia, synchronizeMedia };
+export { populateMediaFromSource, syncUnlinkedLocalNodes, refreshMediaSources, getMedia, synchronizeMedia };
