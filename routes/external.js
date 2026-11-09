@@ -9,7 +9,8 @@ router.get('/gelbooru', (req, res, next) => {
     res.send('respond with the list of mediaNodes');
 });
 
-router.get('/*', (req, res, next) => {
+// Express 5 wildcards must be named; the braces make it optional so /external/ also matches
+router.get('/{*splat}', (req, res, next) => {
 
     res.send('error: unsupported external site');
 });

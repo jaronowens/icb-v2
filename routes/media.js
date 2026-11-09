@@ -6,14 +6,13 @@ const { open } = require('sqlite');
 const { getMediaNodes } = require('../service/mediaService');
 
 /* GET local files listing. */
-router.get('/', (req, res, next) => {
-    open({
+// Express 5 passes a rejected promise from an async handler to the error handler (a 500), instead of crashing
+router.get('/', async (req, res) => {
+    const db = await open({
         filename: './db/media.sqlite3',
         driver: sqlite3.Database
-    }).then(async (db) => {
-        const result = await getMediaNodes(db);
-        res.json(result);
-    })
+    });
+    res.json(await getMediaNodes(db));
 });
 
 /* Questions */

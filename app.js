@@ -1,6 +1,5 @@
 const createError = require('http-errors');
 const express = require('express');
-const qs = require('qs');
 const fs = require('fs');
 const path = require('path');
 const cookieParser = require('cookie-parser');
@@ -20,13 +19,23 @@ const { syncDirectory } = require('./service/localFileService');
 const { deleteLocalNodesOutsideDirectories } = require('./repository/local');
 const { populateMediaFromSource, syncUnlinkedLocalNodes, refreshMediaSources, synchronizeMedia } = require('./repository/media');
 
+// Directory names become route paths (/<name>/<file>). Express 5 rejects reserved characters
+// in paths, so only allow names that are always safe.
+const VALID_DIRECTORY_NAME = /^[A-Za-z0-9_-]+$/;
+const validDirectories = directories.filter(directory => {
+  if (!VALID_DIRECTORY_NAME.test(directory.name)) {
+    console.error(`Skipping directory "${directory.name}" (${directory.path}): names may only contain letters, digits, - and _`);
+    return false;
+  }
+  return true;
+});
+
 const app = express();
 
 // set up cors and query parser
 app.use(cors());
-app.set('query parser'), function (str) {
-  return qs.parse(str);
-}
+// Express 5 defaults to the 'simple' parser; 'extended' keeps nested queries like ?a[b]=1
+app.set('query parser', 'extended');
 
 // view engine setup
 app.set('views', path.join(__dirname, 'views'));
@@ -46,7 +55,7 @@ open({
   await migrate(db);
   // Each step depends on the previous one finishing, so everything is awaited in order:
   // all Local changes first, then Media rows for new hashes, linking, re-pointing sources, and mounting last.
-  for (const directory of directories) {
+  for (const directory of validDirectories) {
     try {
       await syncDirectory(directory.name, directory.path, db, fs);
     }
@@ -54,7 +63,7 @@ open({
       console.error(`Failed to sync ${directory.path}:`, err.message);
     }
   }
-  // Directories that couldn't be read are still in directories.json, so their rows are kept
+  // Directories that couldn't be read or have an invalid name are still in directories.json, so their rows are kept
   await deleteLocalNodesOutsideDirectories(db, directories.map(directory => directory.path));
   await populateMediaFromSource('Local', db);
   await syncUnlinkedLocalNodes(db);
@@ -66,7 +75,7 @@ open({
 });
 
 // set up CDN
-directories.forEach(directory => {
+validDirectories.forEach(directory => {
   app.use(`/${directory.name}`, express.static(directory.path));
 })
 
