@@ -9,7 +9,6 @@ const sqlite3 = require('sqlite3').verbose();
 const { open } = require('sqlite');
 
 const indexRouter = require('./routes/index');
-const localRouter = require('./routes/local');
 const collectionRouter = require('./routes/collection');
 const externalRouter = require('./routes/external');
 const mediaRouter = require('./routes/media');
@@ -86,7 +85,6 @@ validDirectories.forEach(directory => {
 
 // Routes
 app.use('/', indexRouter);
-app.use('/local', localRouter);
 app.use('/collection', collectionRouter);
 app.use('/external', externalRouter);
 app.use('/media', mediaRouter);
