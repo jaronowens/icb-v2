@@ -63,6 +63,27 @@ Runs a fresh build (via `prestart`), then starts the server from `build/bin/www`
 
 Deletes the `/build` directory.
 
+``npm test``
+
+Runs the test suite with Mocha. Tests run against the source through `tsx`, so there's no need to build first. Set `TEST_LOGS=1` to see the app's console output, which is silenced during tests by default.
+
+## Testing
+
+Tests use [Mocha](https://mochajs.org/) as the runner, [Supertest](https://www.npmjs.com/package/supertest) for requests against the app, and `node:assert` for assertions. They never touch `./db/media.sqlite3` or the folders in `directories.json`: each suite gets a fresh in-memory database, and the app serves `test/fixtures/images/` at `/fixtures`.
+
+- `test/unit/` for repository and service functions, called directly with a test database.
+- `test/integration/` for HTTP requests against the app.
+- Name test files `<module>.test.ts` (or `.js`) after the module they cover.
+
+Helpers in `test/helpers/index.ts`:
+
+- `createTestDb()`: a fresh in-memory database with the current schema.
+- `createTestApp({ directories, sync })`: the app on a fresh test database, serving the fixtures by default. Runs startup sync and waits for it unless `sync` is `false`. Returns `{ app, db }`.
+
+Close the database from either helper with `db.close()` when the test or suite is done. `test/fixtures/README.md` lists what each fixture file covers.
+
+The app is built by `createApp({ db, directories })` in `app.js`, which has no side effects. `bin/www` opens the real database and runs startup sync (`startup` in `service/startupService.ts`), so tests can build the app against anything.
+
 ## Planned Features
 
 The features below are planned to be implemented. They are listed roughly in order of dependency and/or priority (features closer to the top should be implemented sooner to make less work for features towards the bottom). If we discover blockers, the list can be re-ordered.
@@ -71,8 +92,8 @@ The features below are planned to be implemented. They are listed roughly in ord
 | ----------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ | ------------------------------------------ |
 | Local Media Loading                                                     | Load media from local sources.                                                                                                                                                                                                     | ✅            | -                                          |
 | Persistence                                                             | Media nodes persist between server start/stop.                                                                                                                                                                                     | ✅            | [yes](specs\persistence\spec.md)           |
-| Local Media Data                                                        | Determine `width` and `height` for local media and add it to the imports.                                                                                                                                                          | ❌            | [yes](\specs\local-media-data\spec.md)                                          |
-| Testing Framework                                                       | Add a testing framework to the project to make unit and/or integration tests more accessible and reliable.                                                                                                                         | ❌            | -                                          |
+| Local Media Data                                                        | Determine `width` and `height` for local media and add it to the imports.                                                                                                                                                          | ✅            | [yes](\specs\local-media-data\spec.md)                                          |
+| Testing Framework                                                       | Add a testing framework to the project to make unit and/or integration tests more accessible and reliable.                                                                                                                         | ✅            | [yes](specs\testing-framework\spec.md)  |
 | Route Reliability                                                       | Make the existing `/media` and `/local` routes reliable: share one database connection, answer `503` until startup sync finishes (with a `/status` endpoint), and return JSON errors instead of crashing or rendering HTML.        | ❌            | [yes](specs\media-route\spec.md)        |
 | Media Endpoints                                                         | Add endpoints that expose CRUD functions on media nodes via API request.                                                                                                                                                           | ❌            | -                                       |
 | Background Hashing                                                      | Rework the image hash generation to happen independently of server initialization.                                                                                                                                                 | ❌            | -                                          |

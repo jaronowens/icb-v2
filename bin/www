@@ -4,9 +4,32 @@
  * Module dependencies.
  */
 
-var app = require('../app');
+var { createApp } = require('../app');
+var { startup } = require('../service/startupService');
+var directories = require('../directories.json');
 var debug = require('debug')('icb-v2:server');
 var http = require('http');
+var sqlite3 = require('sqlite3').verbose();
+var { open } = require('sqlite');
+
+/**
+ * Open the database and build the app. One connection for the whole app, stored as a promise
+ * (see createApp in app.js).
+ */
+
+var dbConnection = open({
+  filename: './db/media.sqlite3',
+  driver: sqlite3.Database
+});
+var app = createApp({ db: dbConnection, directories: directories });
+
+/**
+ * Sync the database with directories.json. Not awaited, so the server listens while sync runs.
+ */
+
+startup(dbConnection, directories).catch(function (err) {
+  console.error('Database initialization failed:', err);
+});
 
 /**
  * Get port from environment and store in Express.

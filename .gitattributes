@@ -1,0 +1,2 @@
+# Fixtures are compared by size and hash, so keep them byte-for-byte on every platform
+test/fixtures/** -text

@@ -1,0 +1,9 @@
+{
+  // For editors and `npx tsc -p test`. Tests run through tsx and are never compiled into /build.
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["node", "mocha"]
+  },
+  "include": ["**/*"]
+}

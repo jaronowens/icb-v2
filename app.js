@@ -1,108 +1,83 @@
 const createError = require('http-errors');
 const express = require('express');
-const fs = require('fs');
 const path = require('path');
 const cookieParser = require('cookie-parser');
 const logger = require('morgan');
 const cors = require('cors');
-const sqlite3 = require('sqlite3').verbose();
-const { open } = require('sqlite');
 
 const indexRouter = require('./routes/index');
 const collectionRouter = require('./routes/collection');
 const externalRouter = require('./routes/external');
 const mediaRouter = require('./routes/media');
-const directories = require('./directories.json');
-const { migrate } = require('./repository/schema');
-const { syncDirectory } = require('./service/localFileService');
-const { deleteLocalNodesOutsideDirectories } = require('./repository/local');
-const { populateMediaFromSource, syncUnlinkedLocalNodes, refreshMediaSources, synchronizeMedia } = require('./repository/media');
+const { isValidDirectoryName } = require('./service/startupService');
 
-// Directory names become route paths (/<name>/<file>). Express 5 rejects reserved characters
-// in paths, so only allow names that are always safe.
-const VALID_DIRECTORY_NAME = /^[A-Za-z0-9_-]+$/;
-const validDirectories = directories.filter(directory => {
-  if (!VALID_DIRECTORY_NAME.test(directory.name)) {
-    console.error(`Skipping directory "${directory.name}" (${directory.path}): names may only contain letters, digits, - and _`);
-    return false;
-  }
-  return true;
-});
-
-const app = express();
-
-// set up cors and query parser
-app.use(cors());
-// Express 5 defaults to the 'simple' parser; 'extended' keeps nested queries like ?a[b]=1
-app.set('query parser', 'extended');
-
-// view engine setup
-app.set('views', path.join(__dirname, 'views'));
-app.set('view engine', 'pug');
-
-app.use(logger('dev'));
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
-app.use(cookieParser());
-app.use(express.static(path.join(__dirname, 'public')));
-
-// mount and initialize DBs
-// One connection for the whole app. Routes get it with `await req.app.locals.db`. It's stored as a promise,
-// so a request that arrives before the connection is open waits for it, and gets a 500 if opening failed.
-const dbConnection = open({
-  filename: './db/media.sqlite3',
-  driver: sqlite3.Database
-});
-app.locals.db = dbConnection;
-
-dbConnection.then(async (db) => {
-  await migrate(db);
-  // Each step depends on the previous one finishing, so everything is awaited in order:
-  // all Local changes first, then Media rows for new hashes, linking, re-pointing sources, and mounting last.
-  for (const directory of validDirectories) {
-    try {
-      await syncDirectory(directory.name, directory.path, db, fs);
+/**
+ * Builds the Express app. Has no side effects: the caller opens the database and runs startup sync
+ * (see bin/www and service/startupService.ts).
+ *
+ * - `db`: an open sqlite connection, or the promise for one. Routes get it with `await req.app.locals.db`,
+ *   so a request that arrives before the connection is open waits for it, and gets a 500 if opening failed.
+ * - `directories`: the `{ name, path }` entries to serve files from, as in directories.json.
+ */
+function createApp({ db, directories }) {
+  const validDirectories = directories.filter(directory => {
+    if (!isValidDirectoryName(directory.name)) {
+      console.error(`Skipping directory "${directory.name}" (${directory.path}): names may only contain letters, digits, - and _`);
+      return false;
     }
-    catch (err) {
-      console.error(`Failed to sync ${directory.path}:`, err.message);
-    }
+    return true;
+  });
+
+  const app = express();
+
+  // set up cors and query parser
+  app.use(cors());
+  // Express 5 defaults to the 'simple' parser; 'extended' keeps nested queries like ?a[b]=1
+  app.set('query parser', 'extended');
+
+  // view engine setup
+  app.set('views', path.join(__dirname, 'views'));
+  app.set('view engine', 'pug');
+
+  // request logging is noise in test output
+  if (process.env.NODE_ENV !== 'test') {
+    app.use(logger('dev'));
   }
-  // Directories that couldn't be read or have an invalid name are still in directories.json, so their rows are kept
-  await deleteLocalNodesOutsideDirectories(db, directories.map(directory => directory.path));
-  await populateMediaFromSource('Local', db);
-  await syncUnlinkedLocalNodes(db);
-  await refreshMediaSources(db);
-  await synchronizeMedia(db, true);
-  console.log('Database ready');
-}).catch((err) => {
-  console.error('Database initialization failed:', err);
-});
+  app.use(express.json());
+  app.use(express.urlencoded({ extended: false }));
+  app.use(cookieParser());
+  app.use(express.static(path.join(__dirname, 'public')));
 
-// set up CDN
-validDirectories.forEach(directory => {
-  app.use(`/${directory.name}`, express.static(directory.path));
-})
+  app.locals.db = db;
 
-// Routes
-app.use('/', indexRouter);
-app.use('/collection', collectionRouter);
-app.use('/external', externalRouter);
-app.use('/media', mediaRouter);
+  // set up CDN
+  validDirectories.forEach(directory => {
+    app.use(`/${directory.name}`, express.static(directory.path));
+  })
 
-// catch 404 and forward to error handler
-app.use(function (req, res, next) {
-  next(createError(404));
-});
+  // Routes
+  app.use('/', indexRouter);
+  app.use('/collection', collectionRouter);
+  app.use('/external', externalRouter);
+  app.use('/media', mediaRouter);
 
-// error handler
-app.use(function (err, req, res, next) {
-  // set locals, only providing error in development
-  res.locals.message = err.message;
-  res.locals.error = req.app.get('env') === 'development' ? err : {};
+  // catch 404 and forward to error handler
+  app.use(function (req, res, next) {
+    next(createError(404));
+  });
 
-  // render the error page
-  res.status(err.status || 500);
-  res.render('error');
-});
+  // error handler
+  app.use(function (err, req, res, next) {
+    // set locals, only providing error in development
+    res.locals.message = err.message;
+    res.locals.error = req.app.get('env') === 'development' ? err : {};
 
-module.exports = app;
+    // render the error page
+    res.status(err.status || 500);
+    res.render('error');
+  });
+
+  return app;
+}
+
+module.exports = { createApp };
