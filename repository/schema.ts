@@ -1,5 +1,5 @@
 /* Schema version, stored in PRAGMA user_version. Bump it and add an entry to `migrations` to change the schema. */
-const CURRENT_VERSION: number = 1;
+const CURRENT_VERSION: number = 2;
 
 /**
  * Migration `v` takes the database from version v - 1 to version v.
@@ -31,6 +31,11 @@ const migrations: Record<number, (db) => Promise<void>> = {
             mediaCollectionID INTEGER, userDataID INTEGER,
             FOREIGN KEY (mediaCollectionID) REFERENCES Collections_Media(mediaID),
             FOREIGN KEY (userDataID) REFERENCES UserData(rowid))`);
+    },
+    // 1 -> 2: image dimensions. Existing rows get NULL and are measured on the next sync.
+    2: async (db) => {
+        await db.run('ALTER TABLE Local ADD COLUMN width INTEGER');
+        await db.run('ALTER TABLE Local ADD COLUMN height INTEGER');
     },
 };
 

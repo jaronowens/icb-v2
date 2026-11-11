@@ -4,9 +4,11 @@ import {
     insertLocalNodes,
     updateChangedLocalNodes,
     updateLocalNodeURLs,
+    updateLocalNodeDimensions,
     deleteLocalNodes,
 } from "../repository/local";
 import { hashLocalNodes, isCurrentHash } from "./hashService";
+import { isMeasurable, measureLocalNodes } from "./dimensionService";
 const BASE_URL: string = 'http://localhost:3000';
 
 const supportedFileTypes: string[] = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'mp4', 'webm'];
@@ -30,8 +32,8 @@ const initializeLocalNode = (fileDir: string, directoryPath: string, fileUrl: st
     const nodeExtension: string = getFileExtension(fileUrl);
     const newMediaNode: localFileNode = {
         name: fileUrl,
-        width: 0,
-        height: 0,
+        width: null, // filled in by measureLocalNodes
+        height: null,
         extension: nodeExtension,
         is_video: (nodeExtension === 'mp4' || nodeExtension === 'webm') ? true : false,
         imageURL: `${fileDir}/${fileUrl}`,
@@ -74,7 +76,8 @@ const scanDirectory = (directoryName: string, directoryPath: string, fs): localF
 /**
  * Brings the Local rows for one directory up to date with the files on disk:
  * new files are hashed and inserted, changed files are re-hashed and unlinked,
- * unchanged files are left alone (apart from URL updates), and missing files are deleted.
+ * unchanged files are left alone (apart from URL updates and measuring files with no dimensions yet),
+ * and missing files are deleted.
  *
  * A directory that can't be read (e.g. a drive that isn't connected) is skipped without touching its rows.
  */
@@ -95,6 +98,7 @@ const syncDirectory = async (directoryName: string, directoryPath: string, db, f
     const newNodes: localFileNode[] = [];
     const changedNodes: localFileNode[] = [];
     const urlChangedNodes: localFileNode[] = [];
+    const unmeasuredNodes: localFileNode[] = [];
     let unchangedCount = 0;
     for (const node of scanned) {
         const row = existing.get(node.source);
@@ -107,6 +111,10 @@ const syncDirectory = async (directoryName: string, directoryPath: string, db, f
             unchangedCount++;
             if (row.imageURL !== node.imageURL) {
                 urlChangedNodes.push(node);
+            }
+            // rows from before schema version 2, or images that couldn't be read last time
+            if (row.width === null && isMeasurable(node.extension)) {
+                unmeasuredNodes.push(node);
             }
         }
     }
@@ -123,11 +131,17 @@ const syncDirectory = async (directoryName: string, directoryPath: string, db, f
     const hashedNew = newNodes.filter(node => hashed.has(node));
     const hashedChanged = changedNodes.filter(node => hashed.has(node));
 
+    // measured after hashing, so files that failed to hash aren't measured for nothing
+    await measureLocalNodes([...hashedNew, ...hashedChanged, ...unmeasuredNodes]);
+    // only write backfills that found something; the rest are already NULL
+    const measuredNodes = unmeasuredNodes.filter(node => node.width !== null);
+
     await db.run('BEGIN');
     try {
         await insertLocalNodes(db, hashedNew);
         await updateChangedLocalNodes(db, hashedChanged);
         await updateLocalNodeURLs(db, urlChangedNodes);
+        await updateLocalNodeDimensions(db, measuredNodes);
         await deleteLocalNodes(db, missingSources);
         await db.run('COMMIT');
     } catch (err) {
@@ -135,7 +149,7 @@ const syncDirectory = async (directoryName: string, directoryPath: string, db, f
         throw err;
     }
 
-    console.log(`${directoryName}: ${hashedNew.length} new, ${hashedChanged.length} changed, ${unchangedCount} unchanged, ${missingSources.length} removed`);
+    console.log(`${directoryName}: ${hashedNew.length} new, ${hashedChanged.length} changed, ${unchangedCount} unchanged, ${measuredNodes.length} measured, ${missingSources.length} removed`);
 }
 
 export { syncDirectory };

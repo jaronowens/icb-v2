@@ -1,8 +1,8 @@
 interface MediaNode {
     id: number;
     name: string;
-    width: number;
-    height: number;
+    width: number | null; // NULL when the file can't be measured (videos, unreadable images)
+    height: number | null;
     extension: string,
     is_video: boolean;
     source: string;

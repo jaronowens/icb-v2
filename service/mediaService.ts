@@ -11,8 +11,8 @@ const getMediaNodes = async (db) => {
         const newNode: MediaNode = {
             id: row.id,
             name: row.name,
-            width: 0,
-            height: 0,
+            width: row.width,
+            height: row.height,
             extension: row.extension,
             is_video: row.is_video,
             source: row.source,

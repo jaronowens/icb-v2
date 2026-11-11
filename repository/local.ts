@@ -1,13 +1,13 @@
 import { localFileNode } from "../entity/localFileNode";
 const tableName: string = 'Local';
 
-/* Rows per statement. 500 rows * 11 columns stays well under SQLite's bound-parameter limit (32766). */
+/* Rows per statement. 500 rows * 13 columns stays well under SQLite's bound-parameter limit (32766). */
 const CHUNK_SIZE: number = 500;
 
 /* Local rows for one directory, with just the columns startup sync needs to classify files. */
 const readLocalNodesForDirectory = async (db, directoryPath: string) => {
     return db.all(
-        `SELECT id, source, size, mtimeMs, imageHash, imageURL FROM ${tableName} WHERE directoryPath = ?`,
+        `SELECT id, source, size, mtimeMs, imageHash, imageURL, width FROM ${tableName} WHERE directoryPath = ?`,
         [directoryPath]
     );
 }
@@ -16,8 +16,8 @@ const readLocalNodesForDirectory = async (db, directoryPath: string) => {
 const insertLocalNodes = async (db, localNodes: localFileNode[]) => {
     for (let i = 0; i < localNodes.length; i += CHUNK_SIZE) {
         const chunk = localNodes.slice(i, i + CHUNK_SIZE);
-        const placeholders = chunk.map(() => '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').join(', ');
-        const query = `INSERT INTO ${tableName} (name, extension, is_video, directoryPath, source, imageURL, previewURL, size, mtimeMs, imageHash, mediaID) VALUES ${placeholders}`;
+        const placeholders = chunk.map(() => '(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)').join(', ');
+        const query = `INSERT INTO ${tableName} (name, extension, is_video, directoryPath, source, imageURL, previewURL, size, mtimeMs, imageHash, width, height, mediaID) VALUES ${placeholders}`;
 
         const values = chunk.flatMap(node => [
             node.name,
@@ -30,6 +30,8 @@ const insertLocalNodes = async (db, localNodes: localFileNode[]) => {
             node.size,
             node.mtimeMs,
             node.imageHash,
+            node.width,
+            node.height,
             -1
         ]);
         await db.run(query, values);
@@ -51,12 +53,12 @@ const runForEach = async <T>(db, query: string, items: T[], params: (item: T) =>
     }
 }
 
-/* Stores a re-hashed file's new hash, size, mtime and URLs, and unlinks it so it gets re-linked to Media. */
+/* Stores a re-hashed file's new hash, size, mtime, dimensions and URLs, and unlinks it so it gets re-linked to Media. */
 const updateChangedLocalNodes = async (db, localNodes: localFileNode[]) => {
     await runForEach(db,
-        `UPDATE ${tableName} SET name = ?, imageURL = ?, previewURL = ?, imageHash = ?, size = ?, mtimeMs = ?, mediaID = -1 WHERE source = ?`,
+        `UPDATE ${tableName} SET name = ?, imageURL = ?, previewURL = ?, imageHash = ?, size = ?, mtimeMs = ?, width = ?, height = ?, mediaID = -1 WHERE source = ?`,
         localNodes,
-        node => [node.name, node.imageURL, node.previewURL, node.imageHash, node.size, node.mtimeMs, node.source]
+        node => [node.name, node.imageURL, node.previewURL, node.imageHash, node.size, node.mtimeMs, node.width, node.height, node.source]
     );
 }
 
@@ -66,6 +68,15 @@ const updateLocalNodeURLs = async (db, localNodes: localFileNode[]) => {
         `UPDATE ${tableName} SET name = ?, imageURL = ?, previewURL = ? WHERE source = ?`,
         localNodes,
         node => [node.name, node.imageURL, node.previewURL, node.source]
+    );
+}
+
+/* Stores dimensions for unchanged files that were never measured. */
+const updateLocalNodeDimensions = async (db, localNodes: localFileNode[]) => {
+    await runForEach(db,
+        `UPDATE ${tableName} SET width = ?, height = ? WHERE source = ?`,
+        localNodes,
+        node => [node.width, node.height, node.source]
     );
 }
 
@@ -100,6 +111,7 @@ export {
     insertLocalNodes,
     updateChangedLocalNodes,
     updateLocalNodeURLs,
+    updateLocalNodeDimensions,
     deleteLocalNodes,
     deleteLocalNodesOutsideDirectories,
     readLocalNodes,

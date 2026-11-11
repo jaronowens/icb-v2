@@ -72,7 +72,8 @@ const refreshMediaSources = async (db) => {
 const getMedia = async (db) => {
     const rows = await db.all(`
         SELECT Media.id AS id, Media.imageHash, Media.tags,
-               Local.name, Local.extension, Local.is_video, Local.imageURL, Local.previewURL, Local.source
+               Local.name, Local.extension, Local.is_video, Local.imageURL, Local.previewURL, Local.source,
+               Local.width, Local.height
         FROM ${tableName}
         JOIN Local ON Local.id = Media.sourceID
         WHERE Media.isMounted = 1;
