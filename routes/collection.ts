@@ -1,26 +1,27 @@
-const express = require('express');
-const router = express.Router();
+import { Router } from 'express';
+
+const router = Router();
 
 /* GET a list of all collections */
-router.get('/', (req, res, next) => {
+router.get('/', (req, res) => {
   res.send('collections - respond with a list of all collections');
 });
 
 /* GET a specific collection by its ID */
-router.get('/:id', (req, res, next) => {
-  res.send(`respond with the specific collection requested: ${req.params.id}`,);
+router.get('/:id', (req, res) => {
+  res.send(`respond with the specific collection requested: ${req.params.id}`);
 });
 
 /* Create a new collection with the incoming data */
-router.post('/', (req, res, next) => {
+router.post('/', (req, res) => {
   res.send(`created a new collection, return the ID of it (probably)`);
 });
 
-router.put('/:id', (req, res, next) => {
+router.put('/:id', (req, res) => {
   res.send(`updated collection ${req.params.id}`);
 });
-router.delete('/:id', (req, res, next) => {
+router.delete('/:id', (req, res) => {
   res.send(`deleted collection`);
 });
 
-module.exports = router;
+export default router;

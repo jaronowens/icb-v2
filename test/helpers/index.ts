@@ -3,7 +3,7 @@ import * as sqlite3 from 'sqlite3';
 import { open } from 'sqlite';
 import { migrate } from '../../repository/schema';
 import { startup } from '../../service/startupService';
-const { createApp } = require('../../app');
+import { createApp } from '../../app';
 
 /* The fixture images, served at /fixtures like a directories.json entry. See test/fixtures/README.md for what each file covers. */
 const FIXTURES_PATH: string = path.join(__dirname, '..', 'fixtures', 'images');

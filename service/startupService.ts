@@ -40,4 +40,4 @@ const startup = async (db, directories: Directory[]): Promise<void> => {
     console.log('Database ready');
 }
 
-export { startup, isValidDirectoryName };
+export { startup, isValidDirectoryName, Directory };

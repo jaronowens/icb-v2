@@ -1,5 +1,5 @@
 {
   "require": ["tsx/cjs", "test/helpers/setup.ts"],
-  "spec": ["test/**/*.test.{js,ts}"],
+  "spec": ["test/**/*.test.ts"],
   "timeout": 10000
 }

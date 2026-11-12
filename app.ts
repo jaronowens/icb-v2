@@ -1,25 +1,31 @@
-const createError = require('http-errors');
-const express = require('express');
-const path = require('path');
-const cookieParser = require('cookie-parser');
-const logger = require('morgan');
-const cors = require('cors');
+import createError, { HttpError } from 'http-errors';
+import express, { Request, Response, NextFunction } from 'express';
+import * as path from 'node:path';
+import cookieParser from 'cookie-parser';
+import logger from 'morgan';
+import cors from 'cors';
+import { Database } from 'sqlite';
 
-const indexRouter = require('./routes/index');
-const collectionRouter = require('./routes/collection');
-const externalRouter = require('./routes/external');
-const mediaRouter = require('./routes/media');
-const { isValidDirectoryName } = require('./service/startupService');
+import indexRouter from './routes/index';
+import collectionRouter from './routes/collection';
+import externalRouter from './routes/external';
+import mediaRouter from './routes/media';
+import { isValidDirectoryName, Directory } from './service/startupService';
+
+type AppOptions = {
+  db: Database | Promise<Database>,
+  directories: Directory[],
+};
 
 /**
  * Builds the Express app. Has no side effects: the caller opens the database and runs startup sync
- * (see bin/www and service/startupService.ts).
+ * (see bin/www.ts and service/startupService.ts).
  *
  * - `db`: an open sqlite connection, or the promise for one. Routes get it with `await req.app.locals.db`,
  *   so a request that arrives before the connection is open waits for it, and gets a 500 if opening failed.
  * - `directories`: the `{ name, path }` entries to serve files from, as in directories.json.
  */
-function createApp({ db, directories }) {
+function createApp({ db, directories }: AppOptions) {
   const validDirectories = directories.filter(directory => {
     if (!isValidDirectoryName(directory.name)) {
       console.error(`Skipping directory "${directory.name}" (${directory.path}): names may only contain letters, digits, - and _`);
@@ -53,7 +59,7 @@ function createApp({ db, directories }) {
   // set up CDN
   validDirectories.forEach(directory => {
     app.use(`/${directory.name}`, express.static(directory.path));
-  })
+  });
 
   // Routes
   app.use('/', indexRouter);
@@ -62,12 +68,13 @@ function createApp({ db, directories }) {
   app.use('/media', mediaRouter);
 
   // catch 404 and forward to error handler
-  app.use(function (req, res, next) {
+  app.use((req: Request, res: Response, next: NextFunction) => {
     next(createError(404));
   });
 
   // error handler
-  app.use(function (err, req, res, next) {
+  // `next` is unused, but Express only treats a handler with four parameters as an error handler
+  app.use((err: HttpError, req: Request, res: Response, next: NextFunction) => {
     // set locals, only providing error in development
     res.locals.message = err.message;
     res.locals.error = req.app.get('env') === 'development' ? err : {};
@@ -80,4 +87,4 @@ function createApp({ db, directories }) {
   return app;
 }
 
-module.exports = { createApp };
+export { createApp };

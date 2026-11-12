@@ -4,9 +4,8 @@ const path = require('path');
 const root = path.join(__dirname, '..');
 const out = path.join(root, 'build');
 
+// Everything else in build/ is emitted by tsc (including directories.json, via resolveJsonModule)
 const assets = [
-  'bin/www',          // no .js extension, so tsc ignores it
-  'directories.json', // JSON is not emitted by tsc for require() in JS files
   'views',
   'public',
 ];

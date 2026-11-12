@@ -1,13 +1,13 @@
 /**
  * Makes a GET fetch request of a given endpoint.
- * @param {*} endpoint - the endpoint to be accessed
+ * @param endpoint - the endpoint to be accessed
  * @returns - the response from the API.
  * @throws - An error if the fetch request failed
  */
-const getFromAPI = async (endpoint) => {
+const getFromAPI = async (endpoint: string): Promise<any> => {
   const myHeaders = new Headers();
 
-  const requestOptions = {
+  const requestOptions: RequestInit = {
       method: 'GET',
       headers: myHeaders,
   };
@@ -27,16 +27,16 @@ const getFromAPI = async (endpoint) => {
 
 /**
 * Makes a POST fetch request of a given endpoint.
-* @param {*} data - JSON data to be placed in the body
-* @param {*} endpoint - the endpoint to be accessed
+* @param data - JSON data to be placed in the body
+* @param endpoint - the endpoint to be accessed
 * @returns - the response from the API.
 * @throws - An error if the fetch request failed
 */
-const postToAPI = async (data, endpoint) => {
+const postToAPI = async (data: unknown, endpoint: string): Promise<Response | undefined> => {
   const myHeaders = new Headers();
   myHeaders.append("Content-Type", "application/json");
 
-  const requestOptions = {
+  const requestOptions: RequestInit = {
       method: 'POST',
       headers: myHeaders,
       body: JSON.stringify(data),
@@ -56,16 +56,16 @@ const postToAPI = async (data, endpoint) => {
 
 /**
 * Makes a PUT fetch request of a given endpoint.
-* @param {*} data - JSON data to be placed in the body
-* @param {*} endpoint - the endpoint to be accessed
+* @param data - JSON data to be placed in the body
+* @param endpoint - the endpoint to be accessed
 * @returns - the response from the API.
 * @throws - An error if the fetch request failed
 */
-const updateToAPI = (data, endpoint) => {
+const updateToAPI = (data: unknown, endpoint: string): Promise<Response | undefined> => {
   const myHeaders = new Headers();
   myHeaders.append("Content-Type", "application/json");
 
-  const requestOptions = {
+  const requestOptions: RequestInit = {
       method: 'PUT',
       headers: myHeaders,
       body: JSON.stringify(data),
@@ -85,14 +85,14 @@ const updateToAPI = (data, endpoint) => {
 
 /**
 * Makes a DELETE fetch request of a given endpoint.
-* @param {*} endpoint - the endpoint to be accessed
+* @param endpoint - the endpoint to be accessed
 * @returns - the response from the API.
 * @throws - An error if the fetch request failed
 */
-const deleteFromAPI = (endpoint) => {
+const deleteFromAPI = (endpoint: string): Promise<Response | undefined> => {
   const myHeaders = new Headers();
 
-  const requestOptions = {
+  const requestOptions: RequestInit = {
       method: 'DELETE',
       headers: myHeaders
   };
@@ -109,7 +109,4 @@ const deleteFromAPI = (endpoint) => {
   return result;
 }
 
-exports.getFromAPI = getFromAPI;
-exports.postToAPI = postToAPI;
-exports.updateToAPI = updateToAPI;
-exports.deleteFromAPI = deleteFromAPI;
+export { getFromAPI, postToAPI, updateToAPI, deleteFromAPI };

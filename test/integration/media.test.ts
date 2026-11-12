@@ -1,6 +1,5 @@
 import * as assert from 'node:assert/strict';
-// supertest's export is a function, so `import * as` doesn't work without esModuleInterop
-import request = require('supertest');
+import request from 'supertest';
 import { createTestApp } from '../helpers';
 
 /* Real dimensions of each fixture that can be a representative. The unreadable file has none. */

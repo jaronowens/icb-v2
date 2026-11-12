@@ -4,30 +4,32 @@
  * Module dependencies.
  */
 
-var { createApp } = require('../app');
-var { startup } = require('../service/startupService');
-var directories = require('../directories.json');
-var debug = require('debug')('icb-v2:server');
-var http = require('http');
-var sqlite3 = require('sqlite3').verbose();
-var { open } = require('sqlite');
+import * as http from 'node:http';
+import createDebug from 'debug';
+import sqlite3 from 'sqlite3';
+import { open } from 'sqlite';
+import { createApp } from '../app';
+import { startup } from '../service/startupService';
+import directories from '../directories.json';
+
+const debug = createDebug('icb-v2:server');
 
 /**
  * Open the database and build the app. One connection for the whole app, stored as a promise
- * (see createApp in app.js).
+ * (see createApp in app.ts).
  */
 
-var dbConnection = open({
+const dbConnection = open({
   filename: './db/media.sqlite3',
-  driver: sqlite3.Database
+  driver: sqlite3.verbose().Database
 });
-var app = createApp({ db: dbConnection, directories: directories });
+const app = createApp({ db: dbConnection, directories: directories });
 
 /**
  * Sync the database with directories.json. Not awaited, so the server listens while sync runs.
  */
 
-startup(dbConnection, directories).catch(function (err) {
+startup(dbConnection, directories).catch(err => {
   console.error('Database initialization failed:', err);
 });
 
@@ -35,14 +37,14 @@ startup(dbConnection, directories).catch(function (err) {
  * Get port from environment and store in Express.
  */
 
-var port = normalizePort(process.env.PORT || '3000');
+const port = normalizePort(process.env.PORT || '3000');
 app.set('port', port);
 
 /**
  * Create HTTP server.
  */
 
-var server = http.createServer(app);
+const server = http.createServer(app);
 
 /**
  * Listen on provided port, on all network interfaces.
@@ -56,8 +58,8 @@ server.on('listening', onListening);
  * Normalize a port into a number, string, or false.
  */
 
-function normalizePort(val) {
-  var port = parseInt(val, 10);
+function normalizePort(val: string): number | string | false {
+  const port = parseInt(val, 10);
 
   if (isNaN(port)) {
     // named pipe
@@ -76,12 +78,12 @@ function normalizePort(val) {
  * Event listener for HTTP server "error" event.
  */
 
-function onError(error) {
+function onError(error: NodeJS.ErrnoException) {
   if (error.syscall !== 'listen') {
     throw error;
   }
 
-  var bind = typeof port === 'string'
+  const bind = typeof port === 'string'
     ? 'Pipe ' + port
     : 'Port ' + port;
 
@@ -105,8 +107,8 @@ function onError(error) {
  */
 
 function onListening() {
-  var addr = server.address();
-  var bind = typeof addr === 'string'
+  const addr = server.address();
+  const bind = typeof addr === 'string'
     ? 'pipe ' + addr
     : 'port ' + addr.port;
   debug('Listening on ' + bind);

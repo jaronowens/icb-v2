@@ -22,11 +22,11 @@ The API uses Express.js for server logic, and a simple Sqlite database to store 
 
 When a call is made, the API finds image nodes in the database that match the request parameters and responds with JSON objects that provide links to the image or video, along with metadata about the images.
 
-### Use of Javascript and Typescript
+### Use of Typescript
 
-The project is primarily written in Typescript, but runs as Javascript to keep the Express/Sqlite3 integration simpler. Some files (`app.js`, `bin/www`, `routes/`, `util/`) are still plain Javascript and should be edited directly in the source tree, alongside the `.ts` files.
+All app source is written in Typescript, using `import`/`export`, and compiles to CommonJS Javascript in `/build`, which is what the server runs. The only plain Javascript files are the build helpers in `scripts/`, which Node runs directly before anything is compiled.
 
-Compiled output lives only in `/build`, which is git-ignored and regenerated on every build. Never edit files in `/build`. Changes to `directories.json`, `views/`, or `public/` are copied at build time, so they take effect on the next `npm start`.
+Compiled output lives only in `/build`, which is git-ignored and regenerated on every build. Never edit files in `/build`. `views/` and `public/` are copied, and `directories.json` is emitted by the compiler, at build time, so they take effect on the next `npm start`.
 
 ## Usage and available scripts
 
@@ -53,11 +53,11 @@ Compiled output lives only in `/build`, which is git-ignored and regenerated on 
 ### Available Commands
 ``npm run build``
 
-Deletes `/build`, compiles all Typescript (and the plain Javascript files) into `/build` with the same directory structure as the project root, then copies runtime assets (`bin/www`, `directories.json`, `views/`, `public/`) into it. The build fails without emitting anything if there are type errors.
+Deletes `/build`, compiles all Typescript (and `directories.json`) into `/build` with the same directory structure as the project root, then copies runtime assets (`views/`, `public/`) into it. The build fails without emitting anything if there are type errors.
 
 ``npm start``
 
-Runs a fresh build (via `prestart`), then starts the server from `build/bin/www`.
+Runs a fresh build (via `prestart`), then starts the server from `build/bin/www.js`.
 
 ``npm run clean``
 
@@ -73,7 +73,7 @@ Tests use [Mocha](https://mochajs.org/) as the runner, [Supertest](https://www.n
 
 - `test/unit/` for repository and service functions, called directly with a test database.
 - `test/integration/` for HTTP requests against the app.
-- Name test files `<module>.test.ts` (or `.js`) after the module they cover.
+- Name test files `<module>.test.ts` after the module they cover.
 
 Helpers in `test/helpers/index.ts`:
 
@@ -82,7 +82,7 @@ Helpers in `test/helpers/index.ts`:
 
 Close the database from either helper with `db.close()` when the test or suite is done. `test/fixtures/README.md` lists what each fixture file covers.
 
-The app is built by `createApp({ db, directories })` in `app.js`, which has no side effects. `bin/www` opens the real database and runs startup sync (`startup` in `service/startupService.ts`), so tests can build the app against anything.
+The app is built by `createApp({ db, directories })` in `app.ts`, which has no side effects. `bin/www.ts` opens the real database and runs startup sync (`startup` in `service/startupService.ts`), so tests can build the app against anything.
 
 ## Planned Features
 
@@ -94,6 +94,7 @@ The features below are planned to be implemented. They are listed roughly in ord
 | Persistence                                                             | Media nodes persist between server start/stop.                                                                                                                                                                                     | ✅            | [yes](specs\persistence\spec.md)           |
 | Local Media Data                                                        | Determine `width` and `height` for local media and add it to the imports.                                                                                                                                                          | ✅            | [yes](\specs\local-media-data\spec.md)                                          |
 | Testing Framework                                                       | Add a testing framework to the project to make unit and/or integration tests more accessible and reliable.                                                                                                                         | ✅            | [yes](specs\testing-framework\spec.md)  |
+| Convert to Typescript                                                   | Convert the last Javascript files (`app.js`, `bin/www`, `routes/`, `util/`) to Typescript with `import`/`export`.                                                                                                                 | ✅            | [yes](specs\convert-to-typescript\spec.md) |
 | Route Reliability                                                       | Make the existing `/media` and `/local` routes reliable: share one database connection, answer `503` until startup sync finishes (with a `/status` endpoint), and return JSON errors instead of crashing or rendering HTML.        | ❌            | [yes](specs\media-route\spec.md)        |
 | Media Endpoints                                                         | Add endpoints that expose CRUD functions on media nodes via API request.                                                                                                                                                           | ❌            | -                                       |
 | Background Hashing                                                      | Rework the image hash generation to happen independently of server initialization.                                                                                                                                                 | ❌            | -                                          |
