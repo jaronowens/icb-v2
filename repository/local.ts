@@ -106,6 +106,22 @@ const readLocalNodes = async (db) => {
     return (await db.all(`SELECT * from ${tableName}`));
 }
 
+/* Every Local file linked to a Media row, lowest id (the representative) first. */
+const getLocalNodesForMedia = async (db, mediaID: number) => {
+    return db.all(
+        `SELECT id, name, extension, is_video, imageURL, previewURL, source FROM ${tableName} WHERE mediaID = ? ORDER BY id`,
+        [mediaID]
+    );
+}
+
+const getLocalNodeBySource = async (db, source: string) => {
+    return db.get(`SELECT id, mediaID FROM ${tableName} WHERE source = ?`, [source]);
+}
+
+const linkLocalNode = async (db, localID: number, mediaID: number) => {
+    await db.run(`UPDATE ${tableName} SET mediaID = ? WHERE id = ?`, [mediaID, localID]);
+}
+
 export {
     readLocalNodesForDirectory,
     insertLocalNodes,
@@ -115,4 +131,7 @@ export {
     deleteLocalNodes,
     deleteLocalNodesOutsideDirectories,
     readLocalNodes,
+    getLocalNodesForMedia,
+    getLocalNodeBySource,
+    linkLocalNode,
 };

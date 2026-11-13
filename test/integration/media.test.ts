@@ -20,6 +20,9 @@ const DIMENSIONS = {
     'image-variant-1-resized.jpg': [850, 1337],
 };
 
+const MEDIA_NODE_KEYS = ['id', 'name', 'width', 'height', 'extension', 'is_video', 'source', 'tags', 'imageURL', 'imageHash', 'previewURL'];
+const FILE_KEYS = ['id', 'name', 'extension', 'is_video', 'imageURL', 'previewURL', 'source'];
+
 describe('GET /media', () => {
     let app, db;
     before(async () => { ({ app, db } = await createTestApp()); });
@@ -40,6 +43,13 @@ describe('GET /media', () => {
         }
     });
 
+    it('returns exactly the GET /media keys for each entry', async () => {
+        const res = await request(app).get('/media').expect(200);
+        for (const entry of res.body) {
+            assert.deepEqual(Object.keys(entry), MEDIA_NODE_KEYS);
+        }
+    });
+
     it('marks videos', async () => {
         const res = await request(app).get('/media').expect(200);
         const videos = res.body.filter(entry => entry.is_video).map(entry => entry.name);
@@ -57,6 +67,84 @@ describe('GET /media', () => {
             const entry = res.body.find(entry => entry.name === name);
             assert.ok(entry, `${name} is in the response`);
             await request(app).get(new URL(entry.imageURL).pathname).expect(200).expect('Content-Type', contentType);
+        });
+    }
+});
+
+describe('GET /media/:id and /media/unmounted', () => {
+    let app, db, unmountedID;
+    before(async () => {
+        ({ app, db } = await createTestApp());
+        // a Media row whose files are gone: unmounted, with tags that must stay reachable
+        const result = await db.run(
+            `INSERT INTO Media (type, isMounted, tags, imageHash, sourceID) VALUES ('Local', 0, 'kept-tag', 'sha256:no-such-file', NULL)`
+        );
+        unmountedID = result.lastID;
+    });
+    after(async () => { await db.close(); });
+
+    const entryNamed = async (prefix: string) => {
+        const res = await request(app).get('/media').expect(200);
+        return res.body.find(entry => entry.name.startsWith(prefix));
+    };
+
+    it('returns a duplicate set with every file, representative first', async () => {
+        const entry = await entryNamed('scene-a');
+        const res = await request(app).get(`/media/${entry.id}`).expect(200).expect('Content-Type', /json/);
+        const { isMounted, files, ...fields } = res.body;
+        assert.deepEqual(fields, entry, 'same fields as the GET /media entry');
+        assert.equal(isMounted, true);
+        assert.deepEqual(files.map(file => file.name).sort(), ['scene-a-copy.png', 'scene-a-small.png', 'scene-a.png']);
+        assert.deepEqual(files.map(file => file.id), files.map(file => file.id).sort((a, b) => a - b), 'ordered by id');
+        assert.equal(files[0].source, entry.source, 'representative first');
+        for (const file of files) {
+            assert.deepEqual(Object.keys(file), FILE_KEYS);
+        }
+    });
+
+    it('returns a single file for media with no duplicates', async () => {
+        const entry = await entryNamed('checker-b.jpg');
+        const res = await request(app).get(`/media/${entry.id}`).expect(200);
+        assert.deepEqual(res.body.files.map(file => file.name), ['checker-b.jpg']);
+    });
+
+    it('returns unmounted media from the Media row alone', async () => {
+        const res = await request(app).get(`/media/${unmountedID}`).expect(200);
+        assert.deepEqual(res.body, {
+            id: unmountedID, name: null, width: null, height: null, extension: null, is_video: null, source: null,
+            tags: 'kept-tag', imageURL: null, imageHash: 'sha256:no-such-file', previewURL: null,
+            isMounted: false, files: [],
+        });
+    });
+
+    it('answers 404 for an id with no Media row', async () => {
+        const res = await request(app).get('/media/9999').expect(404).expect('Content-Type', /json/);
+        assert.match(res.body.error, /9999/);
+    });
+
+    for (const id of ['abc', '0', '-1', '1.5', '01', '99999999999999999999']) {
+        it(`answers 400 for the id "${id}"`, async () => {
+            const res = await request(app).get(`/media/${id}`).expect(400).expect('Content-Type', /json/);
+            assert.match(res.body.error, /positive integer/);
+        });
+    }
+
+    it('lists only unmounted media at /media/unmounted', async () => {
+        const res = await request(app).get('/media/unmounted').expect(200);
+        assert.deepEqual(res.body.map(entry => [entry.id, entry.isMounted, entry.tags]), [[unmountedID, false, 'kept-tag']]);
+        assert.deepEqual(Object.keys(res.body[0]), [...MEDIA_NODE_KEYS, 'isMounted']);
+    });
+});
+
+describe('PUT and DELETE /media', () => {
+    let app, db;
+    before(async () => { ({ app, db } = await createTestApp({ directories: [], sync: false })); });
+    after(async () => { await db.close(); });
+
+    for (const [method, path] of [['put', '/media/1'], ['put', '/media'], ['delete', '/media/1'], ['delete', '/media']]) {
+        it(`answers 501 for ${method.toUpperCase()} ${path}`, async () => {
+            const res = await request(app)[method](path).expect(501).expect('Content-Type', /json/);
+            assert.match(res.body.error, /not implemented/);
         });
     }
 });

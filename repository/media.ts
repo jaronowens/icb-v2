@@ -98,4 +98,55 @@ const synchronizeMedia = async (db, reset: boolean = true) => {
     const result = await db.run(query);
     console.log(`Media table synchronized, ${result.changes} media nodes mounted.`);
 }
-export { populateMediaFromSource, syncUnlinkedLocalNodes, refreshMediaSources, getMedia, synchronizeMedia };
+/* One Media row with its representative Local file's fields, or undefined. The Local fields are NULL if it has no source. */
+const getMediaById = async (db, id: number) => {
+    return db.get(`
+        SELECT Media.id AS id, Media.imageHash, Media.tags, Media.isMounted,
+               Local.name, Local.extension, Local.is_video, Local.imageURL, Local.previewURL, Local.source,
+               Local.width, Local.height
+        FROM ${tableName}
+        LEFT JOIN Local ON Local.id = Media.sourceID
+        WHERE Media.id = ?;
+    `, [id]);
+}
+
+/* Every unmounted Media row, with only the fields the Media row itself has. */
+const getUnmountedMedia = async (db) => {
+    return db.all(`SELECT id, imageHash, tags FROM ${tableName} WHERE isMounted = 0 ORDER BY id`);
+}
+
+const getMediaByHash = async (db, imageHash: string) => {
+    return db.get(`SELECT id, isMounted FROM ${tableName} WHERE imageHash = ?`, [imageHash]);
+}
+
+/* Creates a mounted Media row for a Local file, with the same column values populateMediaFromSource uses. Returns its id. */
+const insertMedia = async (db, imageHash: string, sourceID: number): Promise<number> => {
+    const result = await db.run(
+        `INSERT INTO ${tableName} (type, isMounted, tags, imageHash, sourceID, mediaCollectionID, userDataID) VALUES ('Local', 1, NULL, ?, ?, NULL, NULL)`,
+        [imageHash, sourceID]
+    );
+    return result.lastID;
+}
+
+/* Mounts a Media row and points it at the lowest-id Local file with its hash, as startup sync does. */
+const mountMedia = async (db, id: number) => {
+    await db.run(`
+        UPDATE ${tableName}
+        SET isMounted = 1,
+            sourceID = (SELECT MIN(Local.id) FROM Local WHERE Local.imageHash = Media.imageHash)
+        WHERE id = ?;
+    `, [id]);
+}
+
+export {
+    populateMediaFromSource,
+    syncUnlinkedLocalNodes,
+    refreshMediaSources,
+    getMedia,
+    synchronizeMedia,
+    getMediaById,
+    getUnmountedMedia,
+    getMediaByHash,
+    insertMedia,
+    mountMedia,
+};

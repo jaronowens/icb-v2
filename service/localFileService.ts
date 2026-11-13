@@ -152,4 +152,4 @@ const syncDirectory = async (directoryName: string, directoryPath: string, db, f
     console.log(`${directoryName}: ${hashedNew.length} new, ${hashedChanged.length} changed, ${unchangedCount} unchanged, ${measuredNodes.length} measured, ${missingSources.length} removed`);
 }
 
-export { syncDirectory };
+export { syncDirectory, initializeLocalNode, isValidFile, getFileExtension, BASE_URL };

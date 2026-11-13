@@ -23,15 +23,17 @@ const dbConnection = open({
   filename: './db/media.sqlite3',
   driver: sqlite3.verbose().Database
 });
-const app = createApp({ db: dbConnection, directories: directories });
 
 /**
- * Sync the database with directories.json. Not awaited, so the server listens while sync runs.
+ * Sync the database with directories.json. Not awaited, so the server listens while sync runs;
+ * the app answers 503 on /media until it finishes (see createApp in app.ts).
  */
 
-startup(dbConnection, directories).catch(err => {
+const ready = startup(dbConnection, directories);
+ready.catch(err => {
   console.error('Database initialization failed:', err);
 });
+const app = createApp({ db: dbConnection, directories: directories, ready });
 
 /**
  * Get port from environment and store in Express.

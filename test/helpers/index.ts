@@ -16,19 +16,32 @@ const createTestDb = async () => {
     return db;
 }
 
+/* A promise with its resolve and reject exposed, for settling `ready` from a test. */
+const deferred = <T = void>() => {
+    let resolve: (value: T) => void;
+    let reject: (err: unknown) => void;
+    const promise = new Promise<T>((res, rej) => { resolve = res; reject = rej; });
+    return { promise, resolve, reject };
+}
+
 /**
  * Builds the app against a fresh in-memory database.
  * - `directories`: defaults to the fixtures folder.
- * - `sync`: run startup sync and wait for it before returning (default true).
+ * - `sync`: run startup sync and wait for it before returning (default true). Without it the database is
+ *   reported ready straight away, empty apart from the schema.
+ * - `ready`: pass your own promise (see `deferred`) to control the database status instead; `sync` is then ignored.
  * Returns `{ app, db }`. Close `db` when the suite is done.
  */
-const createTestApp = async ({ directories = fixtureDirectories, sync = true } = {}) => {
+const createTestApp = async ({ directories = fixtureDirectories, sync = true, ready = undefined as Promise<unknown> | undefined } = {}) => {
     const db = await createTestDb();
-    const app = createApp({ db, directories });
-    if (sync) {
-        await startup(db, directories);
+    if (ready) {
+        return { app: createApp({ db, directories, ready }), db };
     }
+    const startupDone = sync ? startup(db, directories) : Promise.resolve();
+    // createApp attaches its handlers before this await, so the status is 'ready' by the time it returns
+    const app = createApp({ db, directories, ready: startupDone });
+    await startupDone;
     return { app, db };
 }
 
-export { FIXTURES_PATH, fixtureDirectories, createTestDb, createTestApp };
+export { FIXTURES_PATH, fixtureDirectories, createTestDb, createTestApp, deferred };
