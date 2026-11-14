@@ -19,6 +19,9 @@ describe('migrate', () => {
 
         const localColumns = (await db.all('PRAGMA table_info(Local)')).map(column => column.name);
         assert.ok(localColumns.includes('width') && localColumns.includes('height'), 'Local has width and height (migration 2)');
+
+        const mediaColumns = (await db.all('PRAGMA table_info(Media)')).map(column => column.name);
+        assert.ok(mediaColumns.includes('perceptualHash'), 'Media has perceptualHash (migration 3)');
     });
 
     it('changes nothing when run again', async () => {

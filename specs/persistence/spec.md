@@ -44,7 +44,7 @@ Persistence was originally turned off because of unresolved SQL issues and a rac
 - `/media` only returns mounted Media rows.
 
 ## Out of scope
-- **Hashing in the background while the server runs.** Hashing is by far the slowest part of startup, so moving it to the background is worth exploring. It needs a refactor of the startup code, and `/media` would return partial results until hashing finishes (probably needing a status endpoint or flag). That's a separate spec.
+- **Hashing in the background while the server runs.** _Now done in `specs/background-perceptual-hash/`: the identity hash became sha256, which is fast enough for startup, and perceptual hashes moved to a background job. The original note follows._ Hashing is by far the slowest part of startup, so moving it to the background is worth exploring. It needs a refactor of the startup code, and `/media` would return partial results until hashing finishes (probably needing a status endpoint or flag). That's a separate spec.
 - Near-match duplicate detection (`specs/near-match-duplicates/`), which depends on this spec.
 - The foreign keys on `Media` that point at tables that don't exist yet (`Collections_Media`, `UserData`). See `specs/convert-to-image-hash/sql-problems.md` #7. They're unchanged until those tables are designed.
 - Watching directories for changes while the server is running. Changes are picked up on the next start.

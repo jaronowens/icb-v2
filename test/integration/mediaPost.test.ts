@@ -44,7 +44,7 @@ describe('POST /media', () => {
         const media = (await request(app).get(`/media/${checkerID}`).expect(200)).body;
         assert.equal(media.name, 'checker-b.jpg');
         assert.deepEqual([media.width, media.height], [40, 40]);
-        assert.match(media.imageHash, /^phash16:/);
+        assert.match(media.imageHash, /^sha256:/);
         assert.equal(media.isMounted, true);
         assert.deepEqual(media.files.map(file => file.name), ['checker-b.jpg']);
         // the URL is served from the mounted directory
@@ -70,7 +70,7 @@ describe('POST /media', () => {
     });
 
     it('mounts an unmounted Media row when a file with its hash is added', async () => {
-        const imageHash = await computeFileHash(path.join(FIXTURES_PATH, 'scene-a.png'), 'png');
+        const imageHash = await computeFileHash(path.join(FIXTURES_PATH, 'scene-a.png'));
         const { lastID } = await db.run(
             `INSERT INTO Media (type, isMounted, tags, imageHash, sourceID) VALUES ('Local', 0, 'old-tag', ?, NULL)`, [imageHash]
         );

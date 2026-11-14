@@ -1,18 +1,12 @@
 import { createHash } from 'node:crypto';
 import { createReadStream } from 'node:fs';
-import { imageHash } from 'image-hash';
 import { localFileNode } from '../entity/localFileNode';
 
-/* File types image-hash can decode. Everything else falls back to a byte-level sha256. */
-const PERCEPTUAL_TYPES: string[] = ['jpg', 'jpeg', 'png', 'webp'];
-/* 16 bits per row = 256-bit hash. 8 bits caught more resized copies but also merged alternate versions of the same artwork
-   (see specs/convert-to-image-hash/implementation.md), so the finer hash is used. */
-const HASH_BITS: number = 16;
-/* The bit count is part of the prefix, so hashes made with different settings never match each other. */
-const PHASH_PREFIX: string = `phash${HASH_BITS}:`;
+/* Every file's identity hash is a sha256 of its bytes. Perceptual hashes are separate: see perceptualHashService.ts. */
 const SHA256_PREFIX: string = 'sha256:';
 const PROGRESS_INTERVAL: number = 100;
 
+/* The hex sha256 of a file's bytes, without the prefix. */
 const sha256File = (filePath: string): Promise<string> => {
     return new Promise((resolve, reject) => {
         const hash = createHash('sha256');
@@ -23,33 +17,18 @@ const sha256File = (filePath: string): Promise<string> => {
     });
 }
 
-/**
- * Hashes a file, returning a prefixed hash string:
- *  - `phash<bits>:<hex>` perceptual hash for supported image types
- *  - `sha256:<hex>` content hash for everything else, or if the perceptual hash fails
- */
-const computeFileHash = async (filePath: string, extension: string): Promise<string> => {
-    if (PERCEPTUAL_TYPES.includes(extension.toLowerCase())) {
-        try {
-            return `${PHASH_PREFIX}${await imageHash(filePath, HASH_BITS, true)}`;
-        } catch (err) {
-            console.warn(`Perceptual hash failed for ${filePath}, falling back to sha256: ${err.message}`);
-        }
-    }
+/* Hashes a file, returning `sha256:<hex>`. */
+const computeFileHash = async (filePath: string): Promise<string> => {
     return `${SHA256_PREFIX}${await sha256File(filePath)}`;
 }
 
-/**
- * True if the hash was made with the current settings.
- * A sha256 hash on an image type (a failed perceptual hash) counts as current,
- * so files that can't be decoded aren't retried on every start.
- */
+/* True if the hash is a current identity hash. Hashes from before sha256 identity (`phash...:`) are out of date. */
 const isCurrentHash = (hash: string): boolean => {
-    return hash.startsWith(PHASH_PREFIX) || hash.startsWith(SHA256_PREFIX);
+    return hash.startsWith(SHA256_PREFIX);
 }
 
 /**
- * Sets imageHash on each node, hashing `concurrency` files at a time.
+ * Sets imageHash on each node, hashing `concurrency` files at a time so file reads overlap.
  * Returns only the nodes that were hashed successfully.
  */
 const hashLocalNodes = async (nodes: localFileNode[], concurrency: number = 8): Promise<localFileNode[]> => {
@@ -57,7 +36,7 @@ const hashLocalNodes = async (nodes: localFileNode[], concurrency: number = 8): 
         const slice = nodes.slice(i, i + concurrency);
         await Promise.all(slice.map(async node => {
             try {
-                node.imageHash = await computeFileHash(node.source, node.extension);
+                node.imageHash = await computeFileHash(node.source);
             } catch (err) {
                 console.error(`Could not hash ${node.source}, skipping: ${err.message}`);
             }
@@ -71,4 +50,4 @@ const hashLocalNodes = async (nodes: localFileNode[], concurrency: number = 8): 
     return nodes.filter(node => node.imageHash);
 }
 
-export { computeFileHash, hashLocalNodes, isCurrentHash };
+export { computeFileHash, hashLocalNodes, isCurrentHash, sha256File, SHA256_PREFIX };

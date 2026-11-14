@@ -35,6 +35,10 @@ router.get('/:id', async (req, res) => {
 router.post('/', async (req, res) => {
     const db = await req.app.locals.db;
     const { id, created } = await addLocalFile(db, req.app.locals.directories, req.body?.filepath);
+    // a new image needs its perceptual hash; the job runs in the background, after the row is committed
+    if (created) {
+        req.app.locals.perceptualHashing?.trigger();
+    }
     res.status(created ? 201 : 200).json({ id });
 });
 

@@ -1,13 +1,15 @@
-After the image-hash conversion (`specs/convert-to-image-hash/`), two files share a Media row only when their perceptual hashes are **exactly** equal. That's deliberately strict: testing showed that loosening it merges alternate versions of an artwork (the same base drawing with clothing, effects or text changed) along with true duplicates. As a result, about a third of resized or re-compressed duplicates are missed and stay as separate Media rows. Alternate versions also have no relationship to each other at all.
+> **Updated by `specs/background-perceptual-hash/`:** files now share a Media row only when their bytes are identical (sha256). Perceptual hashes live in their own column, `Media.perceptualHash`, filled in by a background job, and no longer merge anything. Resized and re-compressed copies are therefore always separate Media rows until near-match review merges them. The sections below have been updated to match.
+
+After the image-hash conversion (`specs/convert-to-image-hash/`), two files shared a Media row only when their perceptual hashes were **exactly** equal. That was deliberately strict: testing showed that loosening it merges alternate versions of an artwork (the same base drawing with clothing, effects or text changed) along with true duplicates. As a result, about a third of resized or re-compressed duplicates were missed and stayed as separate Media rows. Alternate versions also have no relationship to each other at all.
 
 This spec adds **near-match comparison**: find pairs of images whose hashes are *close* but not equal, and let the user decide what each pair is. The app doesn't decide.
 
 ## Depends on
-- **The image-hash conversion** (done): `Local.imageHash` and `Media.imageHash`, stored as `phash:<hex>` (16 bits, a 256-bit hash) or `sha256:<hex>`.
+- **The image-hash conversion** (done), as reworked by **`specs/background-perceptual-hash/`** (done): `Media.imageHash` is always `sha256:<hex>`. `Media.perceptualHash` is `phash16:<hex>` (a 256-bit blockhash, decoded with `sharp`), `none` for images that couldn't be decoded, or `NULL` for gifs, videos and images not hashed yet.
 - **Database persistence** (the second half of `specs/convert-to-image-hash/spec.md`): review decisions are user data. While the tables are dropped on every start, every decision would be lost on restart. This spec shouldn't ship before persistence does.
 
 ## Background: why near-match can't auto-merge
-Measured during the image-hash work. "Distance" is the Hamming distance, the number of bits that differ between two hashes.
+Measured during the image-hash work, with `image-hash` decoding at full size. "Distance" is the Hamming distance, the number of bits that differ between two hashes. The app now decodes with `sharp` and shrinks images to 512 px first; on `duplicates-test` that moves a few pairs by 2–4 bits (3/22 goes from 38 to 40) and leaves the closest unrelated pair at 68. See "Measurements" in `specs/background-perceptual-hash/implementation.md`.
 
 | Pair type | Distance at 16 bits (of 256) | Distance at 8 bits (of 64) |
 | --- | --- | --- |
@@ -27,17 +29,17 @@ The ranges for resized copies and alternates overlap, so no threshold can tell t
 ## Non-goals
 - Deciding anything automatically. Nothing is merged without a user decision.
 - Building the review UI. This spec covers the API; the front end is separate.
-- Near-matching `sha256:` hashes (gifs and videos). A content hash has no meaningful distance, so only `phash:` rows take part.
+- Near-matching gifs and videos. They have no perceptual hash (`perceptualHash` is `NULL`), so only `phash16:` rows take part.
 
 ## Spec
 
 ### Finding candidates
-- Compare every `phash:` Media row against every other, compute the Hamming distance, and record a candidate for each pair where `0 < distance <= threshold`. Distance 0 is already merged by the exact-match sync.
-- The threshold is a single config value. **Starting point: 40** (of 256 bits). In testing, that catches every alternate pair (the farthest was 38) and every resized copy (the farthest was 9), while the closest unrelated pair was 68. A threshold of 16 would miss 1 of the 19 alternate pairs. Tune it with real data.
+- Compare every Media row whose `perceptualHash` starts with `phash16:` against every other, compute the Hamming distance, and record a candidate for each pair where `0 <= distance <= threshold`. Distance 0 is included: identical perceptual hashes no longer merge automatically, so they need a decision like any other pair. Skip `none` and `NULL`.
+- The threshold is a single config value. **Starting point: 40** (of 256 bits). In testing, that catches every alternate pair (the farthest was 38, now exactly 40 with `sharp`) and every resized copy (the farthest was 9), while the closest unrelated pair was 68. A threshold of 16 would miss 1 of the 19 alternate pairs. Since 3/22 now sits right at 40 and nothing unrelated comes closer than 68, a little margin (say 44) may be worth it. Tune it with real data.
 - SQLite can't count differing bits in hex strings, so the comparison runs in JS.
   - **Simple approach (fine up to a few thousand images):** compare every pair. 670 images is about 224,000 comparisons, which takes well under a second.
   - **Scaling approach (if the collection grows into tens of thousands):** split each 256-bit hash into *k* chunks, where *k* is greater than the threshold, and store them in an indexed table. If two hashes are within the threshold, at least one chunk must be identical (the pigeonhole principle). So only images that share a chunk need comparing, and that lookup is a plain indexed SQL join. Caveat: with a threshold of 40, that means 41+ chunks of about 6 bits each. Chunks that small match by chance often, so the index filters out very little. A BK-tree (a search tree built on distances) or a lower threshold may work better. Optional; only worth it if the simple approach gets slow.
-- Run this after startup sync. Only check pairs involving Media rows that are new since the last run; previously checked pairs don't need recomputing.
+- Run this after a background perceptual hash pass finishes (`service/perceptualHashService.ts`), not after startup sync: until then, new rows have no perceptual hash. Only check pairs involving Media rows hashed since the last run; previously checked pairs don't need recomputing.
 
 ### Storage
 New table (the names are suggestions):
@@ -72,10 +74,10 @@ Alternate groups need their own representation. One option is an `alternateGroup
   - Alternate sets: {1, 39}, {2, 29}, {3, 22}, {4, 7}, {5, 9, 24}, {6, 23, 36}, {10, 11, 31}, {12, 32}, {15, 30}, {17, 28}, {18, 38}, {19, 26}, {27, 35}
   - Same character in a *different* picture, which should **not** be matched: {20, 25, 34, 37}
   - Unrelated: 8, 13, 14, 16, 21, 33
-  - Expected with threshold 40: all 19 pairs inside alternate sets become candidates, and nothing else does (the closest other pair is 68). With threshold 16: 18 of 19 (3/22 is missed at 38).
+  - Expected with threshold 40: all 19 pairs inside alternate sets become candidates, and nothing else does (the closest other pair is 68). With threshold 16: 18 of 19 (3/22 is missed at 40).
 - **`F:\Thunder\Documents\Salvaged Downloads\hydrus-export\highly-rated`**: 670 images, already filtered for duplicates and close near-matches, so it should produce very few candidates. Good for checking false positives.
 - **Real duplicates:** neither folder contains real resized or re-compressed duplicates. A test set of genuine internet re-uploads (different sizes or compression of the same image) would make threshold tuning far more trustworthy than synthetic downscales.
-- **`tools/pairwise-distances.js`**: hashes a folder at 8 and 16 bits and prints the closest pairs. This is the script used to produce the measurements above.
+- **`tools/pairwise-distances.js`**: hashes a folder at 8 and 16 bits with `image-hash` and prints the closest pairs. This is the script used to produce the measurements above. For the app's current pipeline, use `specs/background-perceptual-hash/tools/compare-decoders.ts --pairs`.
 
 ## Open questions
 - **Which Media survives a `duplicate` merge?** Larger resolution? Larger file? The older row? Or should the user pick in the request?

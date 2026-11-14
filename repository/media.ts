@@ -138,7 +138,42 @@ const mountMedia = async (db, id: number) => {
     `, [id]);
 }
 
+/**
+ * Mounted Media rows whose representative file is one of `types` and whose perceptual hash is missing or was made
+ * with other settings (doesn't start with `prefix`). Rows marked `unhashable` are skipped.
+ */
+const getMediaNeedingPerceptualHash = async (db, types: string[], prefix: string, unhashable: string): Promise<{ id: number, source: string }[]> => {
+    const placeholders = types.map(() => '?').join(', ');
+    return db.all(`
+        SELECT Media.id AS id, Local.source AS source
+        FROM ${tableName}
+        JOIN Local ON Local.id = Media.sourceID
+        WHERE Media.isMounted = 1
+          AND lower(Local.extension) IN (${placeholders})
+          AND (Media.perceptualHash IS NULL
+               OR (Media.perceptualHash != ? AND substr(Media.perceptualHash, 1, ?) != ?))
+        ORDER BY Media.id;
+    `, [...types, unhashable, prefix.length, prefix]);
+}
+
+/* Stores perceptual hashes. Doesn't open its own transaction: the caller runs it inside one. */
+const setPerceptualHashes = async (db, results: { id: number, value: string }[]) => {
+    if (results.length === 0) {
+        return;
+    }
+    const statement = await db.prepare(`UPDATE ${tableName} SET perceptualHash = ? WHERE id = ?`);
+    try {
+        for (const { id, value } of results) {
+            await statement.run([value, id]);
+        }
+    } finally {
+        await statement.finalize();
+    }
+}
+
 export {
+    getMediaNeedingPerceptualHash,
+    setPerceptualHashes,
     populateMediaFromSource,
     syncUnlinkedLocalNodes,
     refreshMediaSources,

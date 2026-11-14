@@ -12,7 +12,7 @@ describe('database readiness', () => {
     afterEach(async () => { await db.close(); });
 
     it('answers 503 with Retry-After on /media while starting, and /status reports starting', async () => {
-        await request(app).get('/status').expect(200, { database: 'starting' });
+        await request(app).get('/status').expect(200, { database: 'starting', perceptualHashing: { state: 'idle', done: 0, total: 0 } });
         for (const path of ['/media', '/media/1', '/media/unmounted']) {
             const res = await request(app).get(path).expect(503).expect('Content-Type', /json/).expect('Retry-After', '5');
             assert.match(res.body.error, /starting/, path);
@@ -23,14 +23,14 @@ describe('database readiness', () => {
     it('serves /media once startup has finished', async () => {
         ready.resolve();
         await ready.promise;
-        await request(app).get('/status').expect(200, { database: 'ready' });
+        await request(app).get('/status').expect(200, { database: 'ready', perceptualHashing: { state: 'idle', done: 0, total: 0 } });
         await request(app).get('/media').expect(200, []);
     });
 
     it('answers 503 without Retry-After, and keeps running, if startup failed', async () => {
         ready.reject(new Error('boom'));
         await ready.promise.catch(() => {});
-        await request(app).get('/status').expect(200, { database: 'failed' });
+        await request(app).get('/status').expect(200, { database: 'failed', perceptualHashing: { state: 'idle', done: 0, total: 0 } });
         const res = await request(app).get('/media').expect(503).expect('Content-Type', /json/);
         assert.match(res.body.error, /failed to initialize: boom/);
         assert.equal(res.headers['retry-after'], undefined);

@@ -18,6 +18,7 @@ const DIMENSIONS = {
     'image-variant-1.jpg': [2605, 4096],
     'image-variant-2.jpg': [2605, 4096],
     'image-variant-1-resized.jpg': [850, 1337],
+    'transparent-corner.png': [64, 64],
 };
 
 const MEDIA_NODE_KEYS = ['id', 'name', 'width', 'height', 'extension', 'is_video', 'source', 'tags', 'imageURL', 'imageHash', 'previewURL'];
@@ -31,12 +32,13 @@ describe('GET /media', () => {
     it('returns one entry per distinct image, with its real width and height', async () => {
         const res = await request(app).get('/media').expect(200).expect('Content-Type', /json/);
 
-        // 14 fixtures, with scene A's two copies merged into it
-        assert.equal(res.body.length, 12);
+        // 15 fixtures, with scene A's byte-for-byte copy merged into it. The resized copy is its own entry.
+        assert.equal(res.body.length, 14);
         // Which scene A file is the representative depends on directory listing order, so check
         // each entry against its own file instead of expecting a particular name.
-        const sceneA = res.body.filter(entry => entry.name.startsWith('scene-a'));
-        assert.equal(sceneA.length, 1, 'scene A and its copies are one entry');
+        const sceneA = res.body.filter(entry => entry.name === 'scene-a.png' || entry.name === 'scene-a-copy.png');
+        assert.equal(sceneA.length, 1, 'scene A and its exact copy are one entry');
+        assert.ok(res.body.some(entry => entry.name === 'scene-a-small.png'), 'the resized copy is its own entry');
         for (const entry of res.body) {
             assert.ok(entry.name in DIMENSIONS, `unexpected entry ${entry.name}`);
             assert.deepEqual([entry.width, entry.height], DIMENSIONS[entry.name], entry.name);
@@ -83,18 +85,18 @@ describe('GET /media/:id and /media/unmounted', () => {
     });
     after(async () => { await db.close(); });
 
-    const entryNamed = async (prefix: string) => {
+    const entryNamed = async (...names: string[]) => {
         const res = await request(app).get('/media').expect(200);
-        return res.body.find(entry => entry.name.startsWith(prefix));
+        return res.body.find(entry => names.includes(entry.name));
     };
 
     it('returns a duplicate set with every file, representative first', async () => {
-        const entry = await entryNamed('scene-a');
+        const entry = await entryNamed('scene-a.png', 'scene-a-copy.png');
         const res = await request(app).get(`/media/${entry.id}`).expect(200).expect('Content-Type', /json/);
         const { isMounted, files, ...fields } = res.body;
         assert.deepEqual(fields, entry, 'same fields as the GET /media entry');
         assert.equal(isMounted, true);
-        assert.deepEqual(files.map(file => file.name).sort(), ['scene-a-copy.png', 'scene-a-small.png', 'scene-a.png']);
+        assert.deepEqual(files.map(file => file.name).sort(), ['scene-a-copy.png', 'scene-a.png']);
         assert.deepEqual(files.map(file => file.id), files.map(file => file.id).sort((a, b) => a - b), 'ordered by id');
         assert.equal(files[0].source, entry.source, 'representative first');
         for (const file of files) {

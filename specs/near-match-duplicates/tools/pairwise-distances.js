@@ -1,5 +1,7 @@
 // Hashes every image in a directory at 8 and 16 bits and prints the closest pairs by Hamming distance.
 // Usage (from the repo root): node specs/near-match-duplicates/tools/pairwise-distances.js <imageDir> <hashes-out.json>
+// Uses image-hash, which the app no longer depends on: run `npm install --no-save image-hash` first.
+// The app now hashes with sharp + blockhash; specs/background-perceptual-hash/tools/compare-decoders.ts --pairs gives the same pair listing for it.
 const { createRequire } = require('module');
 const fs = require('fs'), path = require('path');
 const req = createRequire(path.join(__dirname, '..', '..', '..', 'package.json'));

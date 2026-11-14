@@ -1,5 +1,5 @@
 /* Schema version, stored in PRAGMA user_version. Bump it and add an entry to `migrations` to change the schema. */
-const CURRENT_VERSION: number = 2;
+const CURRENT_VERSION: number = 3;
 
 /**
  * Migration `v` takes the database from version v - 1 to version v.
@@ -37,15 +37,27 @@ const migrations: Record<number, (db) => Promise<void>> = {
         await db.run('ALTER TABLE Local ADD COLUMN width INTEGER');
         await db.run('ALTER TABLE Local ADD COLUMN height INTEGER');
     },
+    // 2 -> 3: perceptual hashes move off the identity hash into their own column (specs/background-perceptual-hash).
+    // Old phash16 values aren't carried over: sharp decodes JPEGs slightly differently from image-hash, so every image
+    // is hashed again once by the background job, and old and new hashes are never compared.
+    // Identity hashes are switched to sha256 by rekeyLegacyHashes on the next start.
+    3: async (db) => {
+        await db.run('ALTER TABLE Media ADD COLUMN perceptualHash TEXT');
+    },
 };
 
 /* Brings the database up to CURRENT_VERSION. Each migration runs in its own transaction. */
 const migrate = async (db) => {
+    await migrateTo(db, CURRENT_VERSION);
+};
+
+/* Brings the database up to `target`. Exported for tests that need a database at an older version. */
+const migrateTo = async (db, target: number) => {
     const { user_version } = await db.get('PRAGMA user_version');
     if (user_version > CURRENT_VERSION) {
         throw new Error(`Database schema version ${user_version} is newer than this code supports (${CURRENT_VERSION})`);
     }
-    for (let v = user_version + 1; v <= CURRENT_VERSION; v++) {
+    for (let v = user_version + 1; v <= target; v++) {
         console.log(`Migrating database schema to version ${v}`);
         await db.run('BEGIN');
         try {
@@ -61,4 +73,4 @@ const migrate = async (db) => {
     }
 };
 
-export { migrate, CURRENT_VERSION };
+export { migrate, migrateTo, CURRENT_VERSION };

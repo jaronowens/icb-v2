@@ -13,6 +13,7 @@ import mediaRouter from './routes/media';
 import statusRouter from './routes/status';
 import { requireDatabase } from './routes/middleware';
 import { isValidDirectoryName, Directory } from './service/startupService';
+import { PerceptualHashJob } from './service/perceptualHashService';
 
 type DbStatus = 'starting' | 'ready' | 'failed';
 
@@ -20,6 +21,7 @@ type AppOptions = {
   db: Database | Promise<Database>,
   directories: Directory[],
   ready: Promise<unknown>,
+  perceptualHashing?: PerceptualHashJob,
 };
 
 /**
@@ -31,8 +33,10 @@ type AppOptions = {
  * - `directories`: the `{ name, path }` entries to serve files from, as in directories.json.
  * - `ready`: settles when startup sync finishes: resolves once the database is ready, rejects if startup fails.
  *   Until then `/media` answers 503 (see routes/middleware.ts), and `GET /status` reports the state.
+ * - `perceptualHashing`: the background perceptual hash job (service/perceptualHashService.ts), if there is one.
+ *   `GET /status` reports its progress and `POST /media` triggers it for new images. The caller starts it.
  */
-function createApp({ db, directories, ready }: AppOptions) {
+function createApp({ db, directories, ready, perceptualHashing }: AppOptions) {
   const validDirectories = directories.filter(directory => {
     if (!isValidDirectoryName(directory.name)) {
       console.error(`Skipping directory "${directory.name}" (${directory.path}): names may only contain letters, digits, - and _`);
@@ -65,6 +69,7 @@ function createApp({ db, directories, ready }: AppOptions) {
   app.locals.directories = validDirectories;
   app.locals.dbStatus = 'starting' as DbStatus;
   app.locals.dbError = null;
+  app.locals.perceptualHashing = perceptualHashing;
   // The rejection handler also marks the promise as handled, so a failed startup is never an unhandled rejection
   ready.then(
     () => { app.locals.dbStatus = 'ready'; },

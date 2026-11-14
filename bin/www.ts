@@ -10,6 +10,7 @@ import sqlite3 from 'sqlite3';
 import { open } from 'sqlite';
 import { createApp } from '../app';
 import { startup } from '../service/startupService';
+import { createPerceptualHashJob, workerCountFromEnv } from '../service/perceptualHashService';
 import directories from '../directories.json';
 
 const debug = createDebug('icb-v2:server');
@@ -33,7 +34,15 @@ const ready = startup(dbConnection, directories);
 ready.catch(err => {
   console.error('Database initialization failed:', err);
 });
-const app = createApp({ db: dbConnection, directories: directories, ready });
+
+/**
+ * Fill in perceptual hashes in the background once the database is ready (see service/perceptualHashService.ts).
+ * POST /media triggers it again for new images.
+ */
+
+const perceptualHashing = createPerceptualHashJob(dbConnection, { workers: workerCountFromEnv() });
+ready.then(() => perceptualHashing.trigger(), () => {});
+const app = createApp({ db: dbConnection, directories: directories, ready, perceptualHashing });
 
 /**
  * Get port from environment and store in Express.

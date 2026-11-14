@@ -27,6 +27,7 @@ const DIMENSIONS = {
     'image-variant-1.jpg': [2605, 4096],
     'image-variant-2.jpg': [2605, 4096],
     'image-variant-1-resized.jpg': [850, 1337],
+    'transparent-corner.png': [64, 64],
 };
 
 describe('startup', () => {
@@ -49,21 +50,20 @@ describe('startup', () => {
         assert.deepEqual(videos, ['RsniFBN.mp4']);
     });
 
-    it('merges duplicate and resized copies into one Media row', async () => {
+    it('merges byte-identical copies into one Media row, and nothing else', async () => {
         const local = await localByName(db);
         const sceneA = local['scene-a.png'];
         assert.notEqual(sceneA.mediaID, -1, 'scene-a.png is linked to a Media row');
         assert.equal(local['scene-a-copy.png'].mediaID, sceneA.mediaID);
-        assert.equal(local['scene-a-small.png'].mediaID, sceneA.mediaID);
 
-        // Every other file is its own Media row: 14 files, with the two scene A copies merged away
-        const others = Object.values(local).filter((row: any) => !row.name.startsWith('scene-a'));
+        // Every other file is its own Media row, including the resized copy: 15 files, with the exact copy merged away
+        const others = Object.values(local).filter((row: any) => row.name !== 'scene-a.png' && row.name !== 'scene-a-copy.png');
         const mediaIDs = new Set(others.map((row: any) => row.mediaID));
         assert.equal(mediaIDs.size, others.length, 'no other files share a Media row');
         assert.ok(!mediaIDs.has(sceneA.mediaID));
 
         const media = await db.all('SELECT id, isMounted FROM Media');
-        assert.equal(media.length, 12);
+        assert.equal(media.length, 14);
         assert.ok(media.every(row => row.isMounted === 1), 'every Media row is mounted');
     });
 
@@ -73,13 +73,6 @@ describe('startup', () => {
         assert.notEqual(local['image-variant-1.jpg'].mediaID, local['image-variant-2.jpg'].mediaID);
     });
 
-    // Known gap: the real resized copy's phash16 differs from the original by a few bits, and hashes
-    // are only merged on an exact match. Un-skip once near matches are merged.
-    it.skip('merges a real resized copy with its original', async () => {
-        const local = await localByName(db);
-        assert.equal(local['image-variant-1-resized.jpg'].mediaID, local['image-variant-1.jpg'].mediaID);
-    });
-
     it('stores real dimensions, and NULL for a file image-size can\'t read', async () => {
         const local = await localByName(db);
         for (const [name, dimensions] of Object.entries(DIMENSIONS)) {
@@ -87,14 +80,14 @@ describe('startup', () => {
         }
     });
 
-    it('uses a perceptual hash for decodable images, and sha256 for everything else', async () => {
+    it('uses a sha256 identity hash for every file, and leaves perceptual hashes to the background job', async () => {
         const local = await localByName(db);
-        for (const name of ['scene-a.png', 'checker-b.jpg', 'Roxanne.webp', 'amberlyn.jpg', BEIDOU, '1337.jpg']) {
-            assert.match(local[name].imageHash, /^phash16:/, name);
+        for (const [name, row] of Object.entries(local)) {
+            assert.match((row as any).imageHash, /^sha256:[0-9a-f]{64}$/, name);
         }
-        for (const name of ['not-an-image.png', GIF, 'RsniFBN.mp4']) {
-            assert.match(local[name].imageHash, /^sha256:/, name);
-        }
+        const media = await db.all('SELECT imageHash, perceptualHash FROM Media');
+        assert.ok(media.every(row => row.imageHash.startsWith('sha256:')), 'every Media key is sha256');
+        assert.ok(media.every(row => row.perceptualHash === null), 'startup computes no perceptual hashes');
     });
 
     it('leaves the rows alone when run again with no file changes', async () => {

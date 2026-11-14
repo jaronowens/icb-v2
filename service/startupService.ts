@@ -3,6 +3,7 @@ import { migrate } from '../repository/schema';
 import { deleteLocalNodesOutsideDirectories } from '../repository/local';
 import { populateMediaFromSource, syncUnlinkedLocalNodes, refreshMediaSources, synchronizeMedia } from '../repository/media';
 import { syncDirectory } from './localFileService';
+import { rekeyLegacyHashes } from './rekeyService';
 
 type Directory = { name: string, path: string };
 
@@ -22,7 +23,8 @@ const startup = async (db, directories: Directory[]): Promise<void> => {
     const connection = await db;
     await migrate(connection);
     // Each step depends on the previous one finishing, so everything is awaited in order:
-    // all Local changes first, then Media rows for new hashes, linking, re-pointing sources, and mounting last.
+    // the one-time sha256 re-key, then all Local changes, then Media rows for new hashes, linking, re-pointing sources, and mounting last.
+    await rekeyLegacyHashes(connection);
     for (const directory of directories.filter(directory => isValidDirectoryName(directory.name))) {
         try {
             await syncDirectory(directory.name, directory.path, connection, fs);
