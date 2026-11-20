@@ -1,6 +1,6 @@
 # Implementation Plan: sha256 identity, background perceptual hashes with `sharp`
 
-Implements `specs/background-perceptual-hash/spec.md`. Builds on persistence (`specs/persistence/`) and the `/media` work (commit `cafb27c`).
+Implements `specs/07-background-perceptual-hash/spec.md`. Builds on persistence (`specs/02-persistence/`) and the `/media` work (commit `cafb27c`).
 
 ## Decisions
 
@@ -28,7 +28,7 @@ Implements `specs/background-perceptual-hash/spec.md`. Builds on persistence (`s
    export default function blockhash(imgData: ImageData, bits: number, method: 1 | 2): string
    ```
 3. **Transparent fixture:** add `test/fixtures/images/transparent-corner.png`, about 64×64, with an opaque shape and one fully transparent quadrant. Generate it once with a throwaway `sharp` script in the scratchpad, using `create` plus `composite`. List it in `test/fixtures/README.md`.
-4. **`specs/background-perceptual-hash/tools/compare-decoders.ts` (new):** usage is `npx tsx specs/background-perceptual-hash/tools/compare-decoders.ts <folder> [--pairs]`.
+4. **`specs/07-background-perceptual-hash/tools/compare-decoders.ts` (new):** usage is `npx tsx specs/07-background-perceptual-hash/tools/compare-decoders.ts <folder> [--pairs]`.
    - For each jpg/jpeg/png/webp, compute:
      - **A:** `image-hash`'s `imageHash(file, 16, true)`
      - **B:** `sharp` without resize, then `blockHash`
@@ -65,7 +65,7 @@ Commit Step 1 on its own (measurements, tool, `blockHash`, fixture, golden hashe
 Set `CURRENT_VERSION = 3` and add:
 
 ```ts
-// 2 -> 3: perceptual hashes move off the identity hash into their own column (specs/background-perceptual-hash)
+// 2 -> 3: perceptual hashes move off the identity hash into their own column (specs/07-background-perceptual-hash)
 3: async (db) => {
     await db.run('ALTER TABLE Media ADD COLUMN perceptualHash TEXT');
     // carryover: only if Step 1 found sharp's hashes identical to image-hash's
@@ -81,7 +81,7 @@ No index is needed on `perceptualHash`: the job's query (Step 5) filters on the 
 
 ```ts
 /**
- * One-time upgrade from perceptual identity hashes to sha256 (specs/background-perceptual-hash).
+ * One-time upgrade from perceptual identity hashes to sha256 (specs/07-background-perceptual-hash).
  * Gives every Local row that still has a phash identity hash its sha256. Each Media row keeps its id
  * under the sha256 of its lowest-id file, and files with different bytes are unlinked
  * so the normal sync steps give them their own Media rows.
@@ -251,7 +251,7 @@ res.json({
   - Finding candidates: compare `perceptualHash`, use `0 <= distance <= threshold`, and skip `none`/`NULL`.
   - Run after a background pass finishes, not after startup sync. A hook from `runPass` can come later.
   - If Step 1 adopted the resize, note that its distance table was measured without one, and record the resized numbers from Step 1 next to it.
-- **`specs/persistence/spec.md`:** in Out of scope, point "Hashing in the background" at this spec.
+- **`specs/02-persistence/spec.md`:** in Out of scope, point "Hashing in the background" at this spec.
 - **`test/fixtures/README.md`:**
   - `scene-a-small.png` is now its own Media row. It has the same *perceptual* hash as `scene-a.png`, which near-match will use.
   - Add `transparent-corner.png`.
@@ -328,12 +328,12 @@ Back up `db/media.sqlite3` first. The upgrade rewrites every hash.
 | `bin/www.ts` | Create the job; trigger it once startup is ready |
 | `routes/status.ts` | Report `perceptualHashing` |
 | `routes/media.ts` | Trigger the job when `POST /media` creates a Media row |
-| `specs/background-perceptual-hash/tools/compare-decoders.ts` | **New**: decoder comparison and golden-hash output |
+| `specs/07-background-perceptual-hash/tools/compare-decoders.ts` | **New**: decoder comparison and golden-hash output |
 | `test/fixtures/images/transparent-corner.png`, `test/fixtures/goldenHashes.ts` | **New** |
 | `test/fixtures/README.md` | `scene-a-small.png` note; new fixture |
 | `test/unit/perceptualHash.test.ts`, `test/unit/rekey.test.ts` | **New** |
 | `test/unit/startupService.test.ts`, `test/unit/schema.test.ts`, `test/integration/mediaPost.test.ts`, `test/integration/status.test.ts` | Updated for sha256 identity, schema v3 and the new status field |
-| `specs/near-match-duplicates/spec.md`, `specs/persistence/spec.md` | Point at `perceptualHash` and this spec |
+| `specs/near-match-duplicates/spec.md`, `specs/02-persistence/spec.md` | Point at `perceptualHash` and this spec |
 
 ## Measurements
 

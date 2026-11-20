@@ -5,7 +5,7 @@ const CONCURRENCY: number = 8;
 type LegacyRow = { id: number, source: string, mediaID: number, sha256?: string };
 
 /**
- * One-time upgrade from perceptual identity hashes to sha256 (specs/background-perceptual-hash).
+ * One-time upgrade from perceptual identity hashes to sha256 (specs/07-background-perceptual-hash).
  *
  * Gives every Local row that still has a `phash` identity hash its sha256. Each Media row keeps its id (and tags)
  * under the sha256 of its lowest-id file. Files with different bytes (resized copies that used to share the row)

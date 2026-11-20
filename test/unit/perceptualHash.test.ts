@@ -10,7 +10,7 @@ import { createPerceptualHashJob } from '../../service/perceptualHashService';
 import { PHASH_PREFIX, UNHASHABLE } from '../../service/perceptualHashSettings';
 
 /* The largest distance from image-hash's hash seen on a fixture JPEG or WebP with the app's pipeline
-   (amberlyn.jpg; see "Measurements" in specs/background-perceptual-hash/implementation.md). */
+   (amberlyn.jpg; see "Measurements" in specs/07-background-perceptual-hash/implementation.md). */
 const JPEG_TOLERANCE = 8;
 
 const hamming = (a: string, b: string): number => {

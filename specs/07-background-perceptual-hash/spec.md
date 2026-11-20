@@ -14,7 +14,7 @@ This spec covers both halves of that split:
 2. **Perceptual hashes move to their own column**, computed by a background job after the server is ready. They feed near-match detection and never decide which Media row a file belongs to.
 3. **Images are decoded with [`sharp`](https://www.npmjs.com/package/sharp) instead of `image-hash`.** The hash algorithm stays the same (blockhash, 16 bits), so the near-match measurements still apply. `sharp` will also be the tool for thumbnails later.
 
-This replaces the "hashing in the background" item listed as out of scope in `specs/persistence/spec.md`.
+This replaces the "hashing in the background" item listed as out of scope in `specs/02-persistence/spec.md`.
 
 ## Goals
 - Startup computes only sha256 hashes, so it's limited by disk speed, not image decoding.
@@ -54,11 +54,11 @@ This replaces the "hashing in the background" item listed as out of scope in `sp
   - No `.rotate()`: `image-hash` ignores EXIF orientation, so hashes match only if `sharp` ignores it too.
 - **Where blockhash comes from:** `image-hash` doesn't export its blockhash function (its `exports` only expose `imageHash()`). Copy `node_modules/image-hash/lib/block-hash.js` into `service/blockHash.ts`, converted to TypeScript, and keep its MIT copyright notice in a header comment. Then remove `image-hash` from `package.json`.
 - **Resizing before hashing (decided by measurement):** `sharp` can shrink a JPEG while decoding it, which makes large images much cheaper to hash. Blockhash averages the image into a 16×16 grid anyway, so a resize to around 512 px on the long side should barely change the result. Use it only if the measurement below shows that.
-- **Measure first:** before wiring `sharp` into the job, write `specs/background-perceptual-hash/tools/compare-decoders.ts` (run with `npx tsx`, since it imports `service/blockHash.ts`), modelled on `specs/near-match-duplicates/tools/pairwise-distances.js`. Run it over `test/fixtures/images`, `duplicates-test` and `highly-rated`. For each image it reports the Hamming distance between:
+- **Measure first:** before wiring `sharp` into the job, write `specs/07-background-perceptual-hash/tools/compare-decoders.ts` (run with `npx tsx`, since it imports `service/blockHash.ts`), modelled on `specs/near-match-duplicates/tools/pairwise-distances.js`. Run it over `test/fixtures/images`, `duplicates-test` and `highly-rated`. For each image it reports the Hamming distance between:
   - `image-hash`'s hash and the `sharp` hash with no resize
   - `image-hash`'s hash and the `sharp` hash with the resize
 
-  Record the results in `specs/background-perceptual-hash/implementation.md`, then decide:
+  Record the results in `specs/07-background-perceptual-hash/implementation.md`, then decide:
   - **Resize:** use it if the near-match ground truth in `duplicates-test` still holds with it. That means all 19 alternate pairs are within 40, and the closest unrelated pair stays well above 40.
   - **Carryover:** keep the migration's carryover only if the chosen pipeline matches `image-hash` exactly (distance 0) on every test image. Otherwise drop the carryover so every image is recomputed once in the background, and old and new hashes are never compared with each other.
 - **Workers:** each worker loads `sharp` once. libvips has its own thread pool, so set `sharp.concurrency(1)` in each worker to avoid running the pool size × libvips threads at once. Also set `sharp.cache(false)`: each file is read once, so caching only uses memory.

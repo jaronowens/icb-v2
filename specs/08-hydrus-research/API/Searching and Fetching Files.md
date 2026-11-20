@@ -12,7 +12,7 @@ Required Headers: n/a
 Arguments (in percent-encoded JSON):
 
 - `tags`: (a list of tags you wish to search for)
-- [file domain](./files.md) (optional, defaults to _combined local file domains_)
+- [file domain](./Files.md) (optional, defaults to _combined local file domains_)
 - `tag_service_key`: (optional, hexadecimal, the tag domain on which to search, defaults to _combined local file domains_)
 - `include_current_tags`: (optional, bool, whether to search 'current' tags, defaults to `true`)
 - `include_pending_tags`: (optional, bool, whether to search 'pending' tags, defaults to `true`)

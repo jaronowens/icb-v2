@@ -1,6 +1,6 @@
 # Implementation Plan: Tags
 
-Implements `specs/tags/spec.md`.
+Implements `specs/09-tags/spec.md`.
 
 ## Decisions
 
@@ -33,7 +33,7 @@ Implements `specs/tags/spec.md`.
 ```ts
 const CURRENT_VERSION: number = 4;
 
-// 3 -> 4: tags move from a string column on Media into their own table (specs/tags).
+// 3 -> 4: tags move from a string column on Media into their own table (specs/09-tags).
 // Media.tags was never written to, so there's nothing to carry over.
 4: async (db) => {
     await db.run(`CREATE TABLE Tags (
@@ -49,7 +49,7 @@ const CURRENT_VERSION: number = 4;
 },
 ```
 
-Also update the comment in `specs/persistence/schemas-and-migrations.md` that sketches this migration, or leave it as historical. That's your call; the plan leaves it alone.
+Also update the comment in `specs/02-persistence/schemas-and-migrations.md` that sketches this migration, or leave it as historical. That's your call; the plan leaves it alone.
 
 ## Step 2: Media repository, `repository/media.ts`
 
@@ -108,7 +108,7 @@ setMediaTags(db, mediaID, names: string[]): Promise<void>
 ## Step 6: JSON-URL parameter parsing, `util/queryParams.ts` (new)
 
 ```ts
-/* Parses a Hydrus-style JSON-URL-encoded string array (specs/hydrus-research/API/General Information.md). Throws 400. */
+/* Parses a Hydrus-style JSON-URL-encoded string array (specs/08-hydrus-research/API/General Information.md). Throws 400. */
 const parseJsonStringArray = (raw: unknown, name: string): string[] => { ... };
 ```
 

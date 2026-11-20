@@ -1,4 +1,4 @@
-The project runs on Express 4 (`express@4.22.3`). Express 5 is the current major version (5.3.0 at the time of writing). The upgrade comes before the route overhaul (`specs/media-route/`), because Express 5 changes how routes are written and how errors in them are handled.
+The project runs on Express 4 (`express@4.22.3`). Express 5 is the current major version (5.3.0 at the time of writing). The upgrade comes before the route overhaul (`specs/06-media-route/`), because Express 5 changes how routes are written and how errors in them are handled.
 
 ## Why upgrade
 - **Errors in async route handlers reach the error handler.** In Express 4, a rejected promise in a handler is never caught, so it either crashes the server (what `/media` does today) or leaves the request hanging. Express 5 passes it to `next(err)` automatically, so handlers can be plain `async` functions.
@@ -12,7 +12,7 @@ The project runs on Express 4 (`express@4.22.3`). Express 5 is the current major
 | Route path syntax is stricter (path-to-regexp v8). A bare `*` is no longer allowed: wildcards need a name, such as `/*splat`. Characters like `(`, `)`, `[`, `]`, `?`, `+` and `!` are reserved, and using them unescaped throws an error when the route is registered. | `routes/external.js`: `router.get('/*', ...)` | Change it to `/{*splat}`. The braces make it optional, so it also matches `/external/`, as the Express 4 version did. |
 | Same as above | `app.js`: the CDN mounts each directory at `` `/${directory.name}` ``, using names from `directories.json` | Validate directory names at startup: letters, digits, `-` and `_` only. An invalid name logs a clear error and that directory is skipped, instead of the server failing on a path-syntax error. The current name, `hydrus`, is valid. |
 | The default query parser changed from `extended` (nested objects and arrays, via `qs`) to `simple`. | `app.js` has `app.set('query parser'), function (str) {...}`, which was meant to set the parser but does nothing: the parenthesis closes too early, so the function is never passed in. It also `require`s `qs`, which isn't in `package.json` and only works because Express installs it. | Replace the line with `app.set('query parser', 'extended')` and remove the `qs` require. That keeps today's behavior. No routes read the query string yet, so this mainly sets up pagination and filters later. |
-| Rejected promises in handlers go to the error handler. | `routes/media.js`: `GET /` runs its query in `open().then(...)` with no `.catch`. | Rewrite that handler as an `async` function that awaits the query, so a failed query becomes a 500 instead of a crash. The other problems with this route (a new connection on every request, stubbed methods and so on) stay in `specs/media-route/`. |
+| Rejected promises in handlers go to the error handler. | `routes/media.js`: `GET /` runs its query in `open().then(...)` with no `.catch`. | Rewrite that handler as an `async` function that awaits the query, so a failed query becomes a 500 instead of a crash. The other problems with this route (a new connection on every request, stubbed methods and so on) stay in `specs/06-media-route/`. |
 | `res.status()` only accepts integers from 100 to 999 and throws otherwise. | `app.js` error handler: `res.status(err.status \|\| 500)` | No change needed. Errors without a status still get 500, and `http-errors` always sets a valid one. |
 
 ## Checked and not affected
@@ -28,7 +28,7 @@ Middleware: `cors`, `morgan`, `cookie-parser`, `http-errors` and `pug` work with
 - Nothing else changes: every existing route keeps its path and response.
 
 ## Out of scope
-- Everything in `specs/media-route/`: the shared connection, readiness, JSON errors, `GET /media/:id` and the stubbed methods. That spec will be revised to rely on Express 5 once the planned routes are written up.
+- Everything in `specs/06-media-route/`: the shared connection, readiness, JSON errors, `GET /media/:id` and the stubbed methods. That spec will be revised to rely on Express 5 once the planned routes are written up.
 - Upgrading the other dependencies (`http-errors`, `debug` and so on).
 
 ## Acceptance

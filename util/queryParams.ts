@@ -2,7 +2,7 @@ import createError from 'http-errors';
 
 /**
  * Parses a query parameter holding a JSON-URL-encoded array of strings, the scheme the Hydrus Client API uses
- * (specs/hydrus-research/API/General Information.md). Express has already URL-decoded the value, so this only
+ * (specs/08-hydrus-research/API/General Information.md). Express has already URL-decoded the value, so this only
  * parses the JSON. Throws a 400 if the parameter is missing, isn't a single string, or isn't a JSON string array.
  */
 const parseJsonStringArray = (raw: unknown, name: string): string[] => {

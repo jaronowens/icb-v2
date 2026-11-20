@@ -1,6 +1,6 @@
 # Implementation Plan: Persist the database between server starts
 
-Implements `specs/persistence/spec.md`. It builds on the image-hash work (commit `5859dbc`), which fixed the startup race and the sync queries.
+Implements `specs/02-persistence/spec.md`. It builds on the image-hash work (commit `5859dbc`), which fixed the startup race and the sync queries.
 
 ## Decisions
 
@@ -180,7 +180,7 @@ Update the `require` lines to match the removed and new exports.
 - **`service/mediaService.ts`:** no change needed (`row.id` is already used).
 - **`routes/local.js`:** `SELECT * FROM Local` now also returns `id`, `directoryPath`, `size`, `mtimeMs`. Harmless.
 - **`routes/media.js`:** opens its own connection on each request. That's fine with persistence, but note that it now reads a database that may be mid-sync during startup, the same as before.
-- **`specs/convert-to-image-hash/spec.md`:** the persistence section now points here.
+- **`specs/01-convert-to-image-hash/spec.md`:** the persistence section now points here.
 
 ## Step 9: Verification
 

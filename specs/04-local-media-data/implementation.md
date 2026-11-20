@@ -1,6 +1,6 @@
 # Implementation Plan: Local Media Dimensions
 
-Implements `specs/local-media-data/spec.md`.
+Implements `specs/04-local-media-data/spec.md`.
 
 ## Decisions
 

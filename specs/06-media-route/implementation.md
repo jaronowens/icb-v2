@@ -1,6 +1,6 @@
 # Implementation Plan: Media Endpoints
 
-Implements `specs/media-route/spec.md`.
+Implements `specs/06-media-route/spec.md`.
 
 ## Decisions
 

@@ -143,7 +143,7 @@ const runPool = (requests: HashRequest[], size: number, onResponse: (response: H
 }
 
 /**
- * The background job that fills Media.perceptualHash (specs/background-perceptual-hash).
+ * The background job that fills Media.perceptualHash (specs/07-background-perceptual-hash).
  * Each pass hashes the mounted Media rows that need it on a fresh pool of worker threads, so decoding never blocks
  * requests, and terminates the pool when it's done. `db` may be the connection or the promise for one.
  */

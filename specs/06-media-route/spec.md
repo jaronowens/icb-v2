@@ -1,4 +1,4 @@
-The `/media` route was put together for testing early on. Now that the database persists (`specs/persistence/`), it is the main way the front end reads data, and it needs to be both reliable and an example for later endpoints to follow.
+The `/media` route was put together for testing early on. Now that the database persists (`specs/02-persistence/`), it is the main way the front end reads data, and it needs to be both reliable and an example for later endpoints to follow.
 
 ## Already done
 - **Shared connection for `/media`.** `app.ts` stores the promise for the connection it opens at startup in `app.locals.db`. `GET /media` awaits it instead of opening a new connection on every request. A request that arrives before the connection is open waits for it, and gets a 500 if opening failed.

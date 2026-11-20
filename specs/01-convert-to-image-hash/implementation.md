@@ -152,7 +152,7 @@ open({...}).then(async (db) => {
 
 Requests to `/media` that arrive before "Database ready" will see partial data. That's fine for this scope, but worth knowing.
 
-## Step 8: `specs/convert-to-image-hash/sql-problems.md`
+## Step 8: `specs/01-convert-to-image-hash/sql-problems.md`
 
 The spec asks for this file. Write it during implementation and include at least the issues found while planning. For each one, show the faulty SQL, explain why it's wrong and describe the fix:
 
@@ -208,5 +208,5 @@ There is no test framework in the project, so verify by hand:
 | `repository/media.ts` | Column + unique constraint; rewrite populate, sync-unlinked, synchronize and getMedia on the hash / foreign key; export `syncUnlinkedLocalNodes` |
 | `service/mediaService.ts` | Map `id` / `imageHash`, fix `previewURL` |
 | `app.js` | Sequential, awaited startup order |
-| `specs/convert-to-image-hash/sql-problems.md` | **New**: write-up of the SQL problems |
+| `specs/01-convert-to-image-hash/sql-problems.md` | **New**: write-up of the SQL problems |
 | `package.json` | Optional `engines.node` |

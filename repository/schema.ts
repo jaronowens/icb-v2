@@ -37,14 +37,14 @@ const migrations: Record<number, (db) => Promise<void>> = {
         await db.run('ALTER TABLE Local ADD COLUMN width INTEGER');
         await db.run('ALTER TABLE Local ADD COLUMN height INTEGER');
     },
-    // 2 -> 3: perceptual hashes move off the identity hash into their own column (specs/background-perceptual-hash).
+    // 2 -> 3: perceptual hashes move off the identity hash into their own column (specs/07-background-perceptual-hash).
     // Old phash16 values aren't carried over: sharp decodes JPEGs slightly differently from image-hash, so every image
     // is hashed again once by the background job, and old and new hashes are never compared.
     // Identity hashes are switched to sha256 by rekeyLegacyHashes on the next start.
     3: async (db) => {
         await db.run('ALTER TABLE Media ADD COLUMN perceptualHash TEXT');
     },
-    // 3 -> 4: tags move from a string column on Media into their own table, linked many-to-many (specs/tags).
+    // 3 -> 4: tags move from a string column on Media into their own table, linked many-to-many (specs/09-tags).
     // Media.tags was never written to, so there's nothing to carry over.
     // The foreign keys document the links; PRAGMA foreign_keys is off, so the tag service removes links itself.
     4: async (db) => {

@@ -1,6 +1,6 @@
 /*
  * Blockhash, copied from image-hash 8.1.1 (lib/block-hash.js) and converted to TypeScript.
- * image-hash doesn't export it, and the app decodes images with sharp instead (specs/background-perceptual-hash).
+ * image-hash doesn't export it, and the app decodes images with sharp instead (specs/07-background-perceptual-hash).
  * The logic is unchanged, quirks included, so hashes stay identical to image-hash's for the same pixels.
  *
  * MIT License

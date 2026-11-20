@@ -12,7 +12,7 @@ The suite uses [Mocha](https://mochajs.org/) as the test runner, [Supertest](htt
 ## Problems
 - **Importing `app.js` has side effects.** Just requiring it opens the real `./db/media.sqlite3`, runs migrations, and syncs (and hashes) every folder in `directories.json`. A test that imports the app would change the real database and scan real image folders, which makes it slow and unpredictable.
 - **The database path and directory list are hard-coded.** Tests can't point the app at an in-memory database or at a fixtures folder.
-- **Startup sync can't be awaited.** The sync chain is started inside `app.js` and nothing outside it can tell when it's finished. Tests (and the readiness work in `specs/media-route/`) need to control or await it.
+- **Startup sync can't be awaited.** The sync chain is started inside `app.js` and nothing outside it can tell when it's finished. Tests (and the readiness work in `specs/06-media-route/`) need to control or await it.
 - **`BASE_URL` in `localFileService.ts` is hard-coded** to `http://localhost:3000`. This doesn't block testing, but tests that check `imageURL` will depend on that value.
 
 ## Spec

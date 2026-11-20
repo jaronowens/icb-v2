@@ -1,15 +1,15 @@
-> **Updated by `specs/background-perceptual-hash/`:** files now share a Media row only when their bytes are identical (sha256). Perceptual hashes live in their own column, `Media.perceptualHash`, filled in by a background job, and no longer merge anything. Resized and re-compressed copies are therefore always separate Media rows until near-match review merges them. The sections below have been updated to match.
+> **Updated by `specs/07-background-perceptual-hash/`:** files now share a Media row only when their bytes are identical (sha256). Perceptual hashes live in their own column, `Media.perceptualHash`, filled in by a background job, and no longer merge anything. Resized and re-compressed copies are therefore always separate Media rows until near-match review merges them. The sections below have been updated to match.
 
-After the image-hash conversion (`specs/convert-to-image-hash/`), two files shared a Media row only when their perceptual hashes were **exactly** equal. That was deliberately strict: testing showed that loosening it merges alternate versions of an artwork (the same base drawing with clothing, effects or text changed) along with true duplicates. As a result, about a third of resized or re-compressed duplicates were missed and stayed as separate Media rows. Alternate versions also have no relationship to each other at all.
+After the image-hash conversion (`specs/01-convert-to-image-hash/`), two files shared a Media row only when their perceptual hashes were **exactly** equal. That was deliberately strict: testing showed that loosening it merges alternate versions of an artwork (the same base drawing with clothing, effects or text changed) along with true duplicates. As a result, about a third of resized or re-compressed duplicates were missed and stayed as separate Media rows. Alternate versions also have no relationship to each other at all.
 
 This spec adds **near-match comparison**: find pairs of images whose hashes are *close* but not equal, and let the user decide what each pair is. The app doesn't decide.
 
 ## Depends on
-- **The image-hash conversion** (done), as reworked by **`specs/background-perceptual-hash/`** (done): `Media.imageHash` is always `sha256:<hex>`. `Media.perceptualHash` is `phash16:<hex>` (a 256-bit blockhash, decoded with `sharp`), `none` for images that couldn't be decoded, or `NULL` for gifs, videos and images not hashed yet.
-- **Database persistence** (the second half of `specs/convert-to-image-hash/spec.md`): review decisions are user data. While the tables are dropped on every start, every decision would be lost on restart. This spec shouldn't ship before persistence does.
+- **The image-hash conversion** (done), as reworked by **`specs/07-background-perceptual-hash/`** (done): `Media.imageHash` is always `sha256:<hex>`. `Media.perceptualHash` is `phash16:<hex>` (a 256-bit blockhash, decoded with `sharp`), `none` for images that couldn't be decoded, or `NULL` for gifs, videos and images not hashed yet.
+- **Database persistence** (the second half of `specs/01-convert-to-image-hash/spec.md`): review decisions are user data. While the tables are dropped on every start, every decision would be lost on restart. This spec shouldn't ship before persistence does.
 
 ## Background: why near-match can't auto-merge
-Measured during the image-hash work, with `image-hash` decoding at full size. "Distance" is the Hamming distance, the number of bits that differ between two hashes. The app now decodes with `sharp` and shrinks images to 512 px first; on `duplicates-test` that moves a few pairs by 2–4 bits (3/22 goes from 38 to 40) and leaves the closest unrelated pair at 68. See "Measurements" in `specs/background-perceptual-hash/implementation.md`.
+Measured during the image-hash work, with `image-hash` decoding at full size. "Distance" is the Hamming distance, the number of bits that differ between two hashes. The app now decodes with `sharp` and shrinks images to 512 px first; on `duplicates-test` that moves a few pairs by 2–4 bits (3/22 goes from 38 to 40) and leaves the closest unrelated pair at 68. See "Measurements" in `specs/07-background-perceptual-hash/implementation.md`.
 
 | Pair type | Distance at 16 bits (of 256) | Distance at 8 bits (of 64) |
 | --- | --- | --- |
@@ -77,7 +77,7 @@ Alternate groups need their own representation. One option is an `alternateGroup
   - Expected with threshold 40: all 19 pairs inside alternate sets become candidates, and nothing else does (the closest other pair is 68). With threshold 16: 18 of 19 (3/22 is missed at 40).
 - **`F:\Thunder\Documents\Salvaged Downloads\hydrus-export\highly-rated`**: 670 images, already filtered for duplicates and close near-matches, so it should produce very few candidates. Good for checking false positives.
 - **Real duplicates:** neither folder contains real resized or re-compressed duplicates. A test set of genuine internet re-uploads (different sizes or compression of the same image) would make threshold tuning far more trustworthy than synthetic downscales.
-- **`tools/pairwise-distances.js`**: hashes a folder at 8 and 16 bits with `image-hash` and prints the closest pairs. This is the script used to produce the measurements above. For the app's current pipeline, use `specs/background-perceptual-hash/tools/compare-decoders.ts --pairs`.
+- **`tools/pairwise-distances.js`**: hashes a folder at 8 and 16 bits with `image-hash` and prints the closest pairs. This is the script used to produce the measurements above. For the app's current pipeline, use `specs/07-background-perceptual-hash/tools/compare-decoders.ts --pairs`.
 
 ## Open questions
 - **Which Media survives a `duplicate` merge?** Larger resolution? Larger file? The older row? Or should the user pick in the request?

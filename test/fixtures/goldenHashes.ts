@@ -1,5 +1,5 @@
 /* image-hash 8.1.1's hashes (imageHash(file, 16, true)) for every decodable fixture, recorded before image-hash was removed.
-   Generated with specs/background-perceptual-hash/tools/compare-decoders.ts --golden. */
+   Generated with specs/07-background-perceptual-hash/tools/compare-decoders.ts --golden. */
 export const GOLDEN_PHASH16: Record<string, string> = {
     '__beidou_genshin_impact_drawn_by_packge__26d9f313e83b566da8a9116ec71be5d4.jpg': '7833f22067117f16811ebc3e8fc89f807807981fde07b7809c009e0cfe0f741f',
     '1337.jpg': 'ec13d80ef00fe80ff80ffc5f8241c047f83ff073e0638043c183c113e797f807',

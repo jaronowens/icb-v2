@@ -5,7 +5,7 @@ The next step in building ICB is to add support for tags. A tag is a small bit o
 Originally, the database was planned to use a space-delimited string as storage for all tags assigned to the media node. However, after further research, I would like to alter this so that Tags is its own table with a many-to-many relationship to Media. This should make it easier to search by tags without having to do lots of service logic, and it also makes the planned Hydrus integration simpler. (Hydrus' tag storage method is more complicated because it has multiple tag domains. This isn't currently planned for ICB, but it should still make integrating data from the Hydrus Client API simpler if we use this tag structure).
 
 ## Percent-encoded JSON
-In order to successfully transmit an array through a query parameter, we will use Hydrus's JSON-URL-encoded scheme for endpoints that accept tags as a query parameter. This stucture is explained in detail at `/specs/hydrus-research/API/General Information.md`.
+In order to successfully transmit an array through a query parameter, we will use Hydrus's JSON-URL-encoded scheme for endpoints that accept tags as a query parameter. This stucture is explained in detail at `/specs/08-hydrus-research/API/General Information.md`.
 
 ## Problems
 

@@ -1,5 +1,5 @@
 /*
- * Tags and their links to Media rows (specs/tags). Names are stored already normalized (see normalizeTag in
+ * Tags and their links to Media rows (specs/09-tags). Names are stored already normalized (see normalizeTag in
  * service/tagService.ts). None of these open a transaction: the caller runs writes inside withTransaction.
  */
 

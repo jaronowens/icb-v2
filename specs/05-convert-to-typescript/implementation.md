@@ -169,7 +169,7 @@ These changes are small, so they're done here, as the spec allows:
 
 ## Out of Scope / Follow-ups
 
-- Everything already listed in the spec: readiness, JSON errors, and the stub routes (`specs/media-route/`).
+- Everything already listed in the spec: readiness, JSON errors, and the stub routes (`specs/06-media-route/`).
 - **`util/httpRequests.ts` quirks**: it swallows non-OK responses, the POST error message is wrong, and the original error is lost. This is worth fixing when `/external` starts using it.
 - **Strict mode**: now that every file is TS, `strict: true` is the next step. It needs typed `db` parameters and narrowed `catch` variables.
 - **Test runner**: with no mixed JS/TS tree left, it's worth comparing Vitest or `node --test` with Mocha + tsx at some point.

@@ -1,6 +1,6 @@
 # Implementation Plan: Upgrade to Express 5
 
-Implements `specs/express-5/spec.md`.
+Implements `specs/03-express-5/spec.md`.
 
 ## Decisions
 
@@ -8,8 +8,8 @@ Implements `specs/express-5/spec.md`.
 | --- | --- |
 | Version | `express@^5.3.0`. No other dependencies change. |
 | Where directory names are checked | Once, at the top of `app.js`. The valid directories are used for both the CDN mounts and startup sync, so a skipped directory is neither served nor synced. |
-| Rows for a directory with an invalid name | **Kept**, the same as for a directory that can't be read (`specs/persistence/implementation.md`, step 5). Its path still goes to `deleteLocalNodesOutsideDirectories`. Otherwise a typo while renaming a directory would delete all its `Local` rows, and fixing the typo would mean re-hashing the whole folder. |
-| `/media` connection leak | Left as it is. The handler only becomes `async`. Closing or sharing the connection belongs to `specs/media-route/`, which will change how the route gets its connection anyway. |
+| Rows for a directory with an invalid name | **Kept**, the same as for a directory that can't be read (`specs/02-persistence/implementation.md`, step 5). Its path still goes to `deleteLocalNodesOutsideDirectories`. Otherwise a typo while renaming a directory would delete all its `Local` rows, and fixing the typo would mean re-hashing the whole folder. |
+| `/media` connection leak | Left as it is. The handler only becomes `async`. Closing or sharing the connection belongs to `specs/06-media-route/`, which will change how the route gets its connection anyway. |
 
 ---
 
