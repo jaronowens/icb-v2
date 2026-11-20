@@ -7,7 +7,7 @@ interface MediaNode {
     extension: string,
     is_video: boolean;
     source: string;
-    tags: string;
+    tags: string[]; // sorted by name, [] if it has none
     imageURL: string;
     imageHash: string;
     previewURL: string;

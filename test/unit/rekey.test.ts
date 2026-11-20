@@ -6,7 +6,7 @@ import * as sqlite3 from 'sqlite3';
 import { migrate, migrateTo } from '../../repository/schema';
 import { startup } from '../../service/startupService';
 import { computeFileHash } from '../../service/hashService';
-import { FIXTURES_PATH, fixtureDirectories } from '../helpers';
+import { FIXTURES_PATH, fixtureDirectories, insertTagLink } from '../helpers';
 import { GOLDEN_PHASH16 } from '../fixtures/goldenHashes';
 
 const GIF = '2148362390_preview_success-small-flip.gif';
@@ -24,10 +24,10 @@ const insertLegacyLocal = async (db, name: string, imageHash: string, mediaID: n
     );
 };
 
-const insertLegacyMedia = async (db, imageHash: string, { tags = null as string | null, isMounted = 1 } = {}): Promise<number> => {
+const insertLegacyMedia = async (db, imageHash: string, { isMounted = 1 } = {}): Promise<number> => {
     const result = await db.run(
-        `INSERT INTO Media (type, isMounted, tags, imageHash, sourceID) VALUES ('Local', ?, ?, ?, NULL)`,
-        [isMounted, tags, imageHash]
+        `INSERT INTO Media (type, isMounted, imageHash, sourceID) VALUES ('Local', ?, ?, NULL)`,
+        [isMounted, imageHash]
     );
     return result.lastID;
 };
@@ -35,6 +35,9 @@ const insertLegacyMedia = async (db, imageHash: string, { tags = null as string 
 const sha256Of = (name: string) => computeFileHash(path.join(FIXTURES_PATH, name));
 const localByName = async (db) => Object.fromEntries((await db.all('SELECT * FROM Local')).map(row => [row.name, row]));
 const mediaById = async (db, id: number) => db.get('SELECT * FROM Media WHERE id = ?', [id]);
+const tagsOf = async (db, id: number): Promise<string[]> => (await db.all(
+    'SELECT Tags.name FROM Media_Tags JOIN Tags ON Tags.id = Media_Tags.tagID WHERE Media_Tags.mediaID = ? ORDER BY Tags.name', [id]
+)).map(row => row.name);
 
 describe('upgrading perceptual identity hashes to sha256', () => {
     let db, sceneID, checkerID, gifID, orphanID;
@@ -44,12 +47,12 @@ describe('upgrading perceptual identity hashes to sha256', () => {
         await migrateTo(db, 2);
         // scene A and both its copies shared one Media row under the old perceptual hash
         const scenePhash = `phash16:${GOLDEN_PHASH16['scene-a.png']}`;
-        sceneID = await insertLegacyMedia(db, scenePhash, { tags: 'kept' });
+        sceneID = await insertLegacyMedia(db, scenePhash);
         checkerID = await insertLegacyMedia(db, `phash16:${GOLDEN_PHASH16['checker-b.jpg']}`);
         // gifs were already sha256
-        gifID = await insertLegacyMedia(db, await sha256Of(GIF), { tags: 'gif-tag' });
+        gifID = await insertLegacyMedia(db, await sha256Of(GIF));
         // a Media row whose files are long gone
-        orphanID = await insertLegacyMedia(db, ORPHAN_HASH, { tags: 'orphan', isMounted: 0 });
+        orphanID = await insertLegacyMedia(db, ORPHAN_HASH, { isMounted: 0 });
         // scene-a.png first, so it's the lowest id in its group
         await insertLegacyLocal(db, 'scene-a.png', scenePhash, sceneID);
         await insertLegacyLocal(db, 'scene-a-copy.png', scenePhash, sceneID);
@@ -59,6 +62,10 @@ describe('upgrading perceptual identity hashes to sha256', () => {
         await db.run('UPDATE Media SET sourceID = (SELECT MIN(id) FROM Local WHERE Local.mediaID = Media.id)');
 
         await migrate(db);
+        // tags have their own table from version 4, so they're linked after migrating, before the re-key runs
+        await insertTagLink(db, sceneID, 'kept');
+        await insertTagLink(db, gifID, 'gif-tag');
+        await insertTagLink(db, orphanID, 'orphan');
         await startup(db, fixtureDirectories);
     });
     after(async () => { await db.close(); });
@@ -66,7 +73,7 @@ describe('upgrading perceptual identity hashes to sha256', () => {
     it('keeps the Media row id and tags under the sha256 of its lowest-id file', async () => {
         const media = await mediaById(db, sceneID);
         assert.equal(media.imageHash, await sha256Of('scene-a.png'));
-        assert.equal(media.tags, 'kept');
+        assert.deepEqual(await tagsOf(db, sceneID), ['kept']);
         assert.equal(media.isMounted, 1);
         assert.equal(media.perceptualHash, null, 'old perceptual hashes are not carried over');
         const local = await localByName(db);
@@ -79,7 +86,7 @@ describe('upgrading perceptual identity hashes to sha256', () => {
         assert.notEqual(small.mediaID, sceneID);
         const media = await mediaById(db, small.mediaID);
         assert.equal(media.imageHash, await sha256Of('scene-a-small.png'));
-        assert.equal(media.tags, null);
+        assert.deepEqual(await tagsOf(db, small.mediaID), []);
         assert.equal(media.isMounted, 1);
     });
 
@@ -87,12 +94,12 @@ describe('upgrading perceptual identity hashes to sha256', () => {
         assert.equal((await mediaById(db, checkerID)).imageHash, await sha256Of('checker-b.jpg'));
         assert.equal((await localByName(db))['checker-b.jpg'].mediaID, checkerID);
         const gif = await mediaById(db, gifID);
-        assert.deepEqual([gif.imageHash, gif.tags], [await sha256Of(GIF), 'gif-tag']);
+        assert.deepEqual([gif.imageHash, await tagsOf(db, gifID)], [await sha256Of(GIF), ['gif-tag']]);
     });
 
     it('leaves a Media row with no files untouched', async () => {
         const orphan = await mediaById(db, orphanID);
-        assert.deepEqual([orphan.imageHash, orphan.tags, orphan.isMounted], [ORPHAN_HASH, 'orphan', 0]);
+        assert.deepEqual([orphan.imageHash, await tagsOf(db, orphanID), orphan.isMounted], [ORPHAN_HASH, ['orphan'], 0]);
     });
 
     it('leaves no perceptual identity hashes, and does nothing on the next start', async () => {

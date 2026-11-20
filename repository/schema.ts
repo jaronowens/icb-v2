@@ -1,5 +1,5 @@
 /* Schema version, stored in PRAGMA user_version. Bump it and add an entry to `migrations` to change the schema. */
-const CURRENT_VERSION: number = 3;
+const CURRENT_VERSION: number = 4;
 
 /**
  * Migration `v` takes the database from version v - 1 to version v.
@@ -43,6 +43,21 @@ const migrations: Record<number, (db) => Promise<void>> = {
     // Identity hashes are switched to sha256 by rekeyLegacyHashes on the next start.
     3: async (db) => {
         await db.run('ALTER TABLE Media ADD COLUMN perceptualHash TEXT');
+    },
+    // 3 -> 4: tags move from a string column on Media into their own table, linked many-to-many (specs/tags).
+    // Media.tags was never written to, so there's nothing to carry over.
+    // The foreign keys document the links; PRAGMA foreign_keys is off, so the tag service removes links itself.
+    4: async (db) => {
+        await db.run(`CREATE TABLE Tags (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL UNIQUE)`);
+        await db.run(`CREATE TABLE Media_Tags (
+            mediaID INTEGER NOT NULL REFERENCES Media(id),
+            tagID INTEGER NOT NULL REFERENCES Tags(id),
+            PRIMARY KEY (mediaID, tagID))`);
+        // the primary key covers lookups by mediaID; this covers counts, renames and deletes by tag
+        await db.run('CREATE INDEX idx_media_tags_tagID ON Media_Tags(tagID)');
+        await db.run('ALTER TABLE Media DROP COLUMN tags');
     },
 };
 

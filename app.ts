@@ -11,6 +11,7 @@ import collectionRouter from './routes/collection';
 import externalRouter from './routes/external';
 import mediaRouter from './routes/media';
 import statusRouter from './routes/status';
+import tagsRouter from './routes/tags';
 import { requireDatabase } from './routes/middleware';
 import { isValidDirectoryName, Directory } from './service/startupService';
 import { PerceptualHashJob } from './service/perceptualHashService';
@@ -32,7 +33,7 @@ type AppOptions = {
  *   so a request that arrives before the connection is open waits for it, and gets a 500 if opening failed.
  * - `directories`: the `{ name, path }` entries to serve files from, as in directories.json.
  * - `ready`: settles when startup sync finishes: resolves once the database is ready, rejects if startup fails.
- *   Until then `/media` answers 503 (see routes/middleware.ts), and `GET /status` reports the state.
+ *   Until then `/media` and `/tags` answer 503 (see routes/middleware.ts), and `GET /status` reports the state.
  * - `perceptualHashing`: the background perceptual hash job (service/perceptualHashService.ts), if there is one.
  *   `GET /status` reports its progress and `POST /media` triggers it for new images. The caller starts it.
  */
@@ -90,6 +91,7 @@ function createApp({ db, directories, ready, perceptualHashing }: AppOptions) {
   app.use('/external', externalRouter);
   app.use('/media', requireDatabase, mediaRouter);
   app.use('/status', statusRouter);
+  app.use('/tags', requireDatabase, tagsRouter);
 
   // catch 404 and forward to error handler
   app.use((req: Request, res: Response, next: NextFunction) => {

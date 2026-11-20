@@ -1,5 +1,16 @@
 const tableName: string = 'Media';
 
+/**
+ * A Media row's tag names as a JSON array, sorted by name ('[]' if it has none). Used as a column in queries on Media.
+ * json_group_array keeps tags that contain commas intact, which GROUP_CONCAT wouldn't.
+ */
+const TAGS_COLUMN: string = `(
+    SELECT json_group_array(name) FROM (
+        SELECT Tags.name AS name FROM Media_Tags JOIN Tags ON Tags.id = Media_Tags.tagID
+        WHERE Media_Tags.mediaID = Media.id
+        ORDER BY Tags.name)
+) AS tags`;
+
 /* Table names can't be bound as SQL parameters, so only allow known source tables to be interpolated. */
 const SOURCE_TABLES: string[] = ['Local'];
 
@@ -18,8 +29,8 @@ const populateMediaFromSource = async (sourceTable: string, db) => {
     console.log('creating media nodes for new image hashes from', sourceTable);
 
     const query = `
-        INSERT INTO ${tableName} (type, isMounted, tags, imageHash, sourceID, mediaCollectionID, userDataID)
-        SELECT ?, 1, NULL, imageHash, MIN(id), NULL, NULL
+        INSERT INTO ${tableName} (type, isMounted, imageHash, sourceID, mediaCollectionID, userDataID)
+        SELECT ?, 1, imageHash, MIN(id), NULL, NULL
         FROM ${sourceTable}
         WHERE imageHash NOT IN (SELECT imageHash FROM ${tableName})
         GROUP BY imageHash;
@@ -71,7 +82,7 @@ const refreshMediaSources = async (db) => {
 /* Returns one entry per mounted Media row, using its representative Local file for names and URLs. */
 const getMedia = async (db) => {
     const rows = await db.all(`
-        SELECT Media.id AS id, Media.imageHash, Media.tags,
+        SELECT Media.id AS id, Media.imageHash, ${TAGS_COLUMN},
                Local.name, Local.extension, Local.is_video, Local.imageURL, Local.previewURL, Local.source,
                Local.width, Local.height
         FROM ${tableName}
@@ -101,7 +112,7 @@ const synchronizeMedia = async (db, reset: boolean = true) => {
 /* One Media row with its representative Local file's fields, or undefined. The Local fields are NULL if it has no source. */
 const getMediaById = async (db, id: number) => {
     return db.get(`
-        SELECT Media.id AS id, Media.imageHash, Media.tags, Media.isMounted,
+        SELECT Media.id AS id, Media.imageHash, ${TAGS_COLUMN}, Media.isMounted,
                Local.name, Local.extension, Local.is_video, Local.imageURL, Local.previewURL, Local.source,
                Local.width, Local.height
         FROM ${tableName}
@@ -112,7 +123,11 @@ const getMediaById = async (db, id: number) => {
 
 /* Every unmounted Media row, with only the fields the Media row itself has. */
 const getUnmountedMedia = async (db) => {
-    return db.all(`SELECT id, imageHash, tags FROM ${tableName} WHERE isMounted = 0 ORDER BY id`);
+    return db.all(`SELECT Media.id AS id, Media.imageHash, ${TAGS_COLUMN} FROM ${tableName} WHERE Media.isMounted = 0 ORDER BY Media.id`);
+}
+
+const mediaExists = async (db, id: number): Promise<boolean> => {
+    return !!(await db.get(`SELECT 1 FROM ${tableName} WHERE id = ?`, [id]));
 }
 
 const getMediaByHash = async (db, imageHash: string) => {
@@ -122,7 +137,7 @@ const getMediaByHash = async (db, imageHash: string) => {
 /* Creates a mounted Media row for a Local file, with the same column values populateMediaFromSource uses. Returns its id. */
 const insertMedia = async (db, imageHash: string, sourceID: number): Promise<number> => {
     const result = await db.run(
-        `INSERT INTO ${tableName} (type, isMounted, tags, imageHash, sourceID, mediaCollectionID, userDataID) VALUES ('Local', 1, NULL, ?, ?, NULL, NULL)`,
+        `INSERT INTO ${tableName} (type, isMounted, imageHash, sourceID, mediaCollectionID, userDataID) VALUES ('Local', 1, ?, ?, NULL, NULL)`,
         [imageHash, sourceID]
     );
     return result.lastID;
@@ -182,6 +197,7 @@ export {
     getMediaById,
     getUnmountedMedia,
     getMediaByHash,
+    mediaExists,
     insertMedia,
     mountMedia,
 };

@@ -1,10 +1,12 @@
 import * as path from 'node:path';
 import * as sqlite3 from 'sqlite3';
+import request from 'supertest';
 import { open } from 'sqlite';
 import { migrate } from '../../repository/schema';
 import { startup } from '../../service/startupService';
 import { createApp } from '../../app';
 import { PerceptualHashJob } from '../../service/perceptualHashService';
+import { FIXTURE_TAGS } from '../fixtures/tags';
 
 /* The fixture images, served at /fixtures like a directories.json entry. See test/fixtures/README.md for what each file covers. */
 const FIXTURES_PATH: string = path.join(__dirname, '..', 'fixtures', 'images');
@@ -53,4 +55,24 @@ const createTestApp = async ({
     return { app, db, job };
 }
 
-export { FIXTURES_PATH, fixtureDirectories, createTestDb, createTestApp, deferred };
+/* A JSON-URL-encoded tag array for PUT /media/:id?tags=... */
+const tagsQuery = (tags: string[]): string => `tags=${encodeURIComponent(JSON.stringify(tags))}`;
+
+/* Tags every fixture Media row with its tags from fixtures/tags.ts, through PUT /media/:id. Needs a synced app. */
+const tagFixtures = async (app) => {
+    const res = await request(app).get('/media').expect(200);
+    for (const entry of res.body) {
+        const tags = FIXTURE_TAGS[entry.name];
+        if (tags) {
+            await request(app).put(`/media/${entry.id}?${tagsQuery(tags)}`).expect(200);
+        }
+    }
+}
+
+/* Links a Media row to a tag directly in the database, creating the tag if needed. For tests that build rows by hand. */
+const insertTagLink = async (db, mediaID: number, name: string) => {
+    await db.run('INSERT OR IGNORE INTO Tags (name) VALUES (?)', [name]);
+    await db.run('INSERT INTO Media_Tags (mediaID, tagID) SELECT ?, id FROM Tags WHERE name = ?', [mediaID, name]);
+}
+
+export { FIXTURES_PATH, fixtureDirectories, createTestDb, createTestApp, deferred, tagsQuery, tagFixtures, insertTagLink };

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import createError from 'http-errors';
-import { getMediaNodes, getMediaDetail, getUnmountedMediaNodes, addLocalFile } from '../service/mediaService';
+import { getMediaNodes, getMediaDetail, getUnmountedMediaNodes, addLocalFile, updateMediaTags } from '../service/mediaService';
 import { parseId } from './middleware';
 
 // Every route here sits behind requireDatabase (see app.ts), so startup sync has finished before any of them run.
@@ -42,9 +42,14 @@ router.post('/', async (req, res) => {
     res.status(created ? 201 : 200).json({ id });
 });
 
-/* Editing media comes with the Tags feature (PUT /media/:id), in a later spec. */
-router.put(['/', '/:id'], () => {
-    throw createError(501, 'Editing media is not implemented yet');
+/*
+ * Replace one media item's tags: ?tags=<JSON-URL-encoded array of strings>, e.g. ?tags=%5B%22elf%22%5D.
+ * Tags that don't exist yet are created; ?tags=%5B%5D removes them all. Answers with the item as GET /media/:id does.
+ */
+router.put('/:id', async (req, res) => {
+    const id = parseId(req.params.id);
+    const db = await req.app.locals.db;
+    res.json(await updateMediaTags(db, id, req.query.tags));
 });
 
 /* Deleting media needs a blacklist of image hashes, so files still on disk stay hidden. That's its own spec. */

@@ -1,6 +1,6 @@
 import * as assert from 'node:assert/strict';
 import request from 'supertest';
-import { createTestApp } from '../helpers';
+import { createTestApp, insertTagLink } from '../helpers';
 
 /* Real dimensions of each fixture that can be a representative. Files image-size can't read have none. */
 const DIMENSIONS = {
@@ -79,9 +79,10 @@ describe('GET /media/:id and /media/unmounted', () => {
         ({ app, db } = await createTestApp());
         // a Media row whose files are gone: unmounted, with tags that must stay reachable
         const result = await db.run(
-            `INSERT INTO Media (type, isMounted, tags, imageHash, sourceID) VALUES ('Local', 0, 'kept-tag', 'sha256:no-such-file', NULL)`
+            `INSERT INTO Media (type, isMounted, imageHash, sourceID) VALUES ('Local', 0, 'sha256:no-such-file', NULL)`
         );
         unmountedID = result.lastID;
+        await insertTagLink(db, unmountedID, 'kept-tag');
     });
     after(async () => { await db.close(); });
 
@@ -114,7 +115,7 @@ describe('GET /media/:id and /media/unmounted', () => {
         const res = await request(app).get(`/media/${unmountedID}`).expect(200);
         assert.deepEqual(res.body, {
             id: unmountedID, name: null, width: null, height: null, extension: null, is_video: null, source: null,
-            tags: 'kept-tag', imageURL: null, imageHash: 'sha256:no-such-file', previewURL: null,
+            tags: ['kept-tag'], imageURL: null, imageHash: 'sha256:no-such-file', previewURL: null,
             isMounted: false, files: [],
         });
     });
@@ -133,19 +134,24 @@ describe('GET /media/:id and /media/unmounted', () => {
 
     it('lists only unmounted media at /media/unmounted', async () => {
         const res = await request(app).get('/media/unmounted').expect(200);
-        assert.deepEqual(res.body.map(entry => [entry.id, entry.isMounted, entry.tags]), [[unmountedID, false, 'kept-tag']]);
+        assert.deepEqual(res.body.map(entry => [entry.id, entry.isMounted, entry.tags]), [[unmountedID, false, ['kept-tag']]]);
         assert.deepEqual(Object.keys(res.body[0]), [...MEDIA_NODE_KEYS, 'isMounted']);
     });
 });
 
-describe('PUT and DELETE /media', () => {
+describe('PUT /media and DELETE /media', () => {
     let app, db;
     before(async () => { ({ app, db } = await createTestApp({ directories: [], sync: false })); });
     after(async () => { await db.close(); });
 
-    for (const [method, path] of [['put', '/media/1'], ['put', '/media'], ['delete', '/media/1'], ['delete', '/media']]) {
-        it(`answers 501 for ${method.toUpperCase()} ${path}`, async () => {
-            const res = await request(app)[method](path).expect(501).expect('Content-Type', /json/);
+    it('answers 404 for PUT /media, which has no id', async () => {
+        const res = await request(app).put('/media').expect(404).expect('Content-Type', /json/);
+        assert.match(res.body.error, /Not found/);
+    });
+
+    for (const path of ['/media/1', '/media']) {
+        it(`answers 501 for DELETE ${path}`, async () => {
+            const res = await request(app).delete(path).expect(501).expect('Content-Type', /json/);
             assert.match(res.body.error, /not implemented/);
         });
     }

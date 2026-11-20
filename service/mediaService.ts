@@ -9,6 +9,8 @@ import { initializeLocalNode, isValidFile, getFileExtension, BASE_URL } from "./
 import { hashLocalNodes } from "./hashService";
 import { measureLocalNodes } from "./dimensionService";
 import { withTransaction } from "../util/transaction";
+import { parseJsonStringArray } from "../util/queryParams";
+import { setMediaTags } from "./tagService";
 import { Directory } from "./startupService";
 
 /* A row from getMedia or getMediaById as a GET /media entry. Keeps the key order GET /media has always had. */
@@ -20,7 +22,7 @@ const toMediaNode = (row): MediaNode => ({
     extension: row.extension,
     is_video: row.is_video,
     source: row.source,
-    tags: row.tags,
+    tags: JSON.parse(row.tags),
     imageURL: row.imageURL,
     imageHash: row.imageHash,
     previewURL: row.previewURL
@@ -35,7 +37,7 @@ const unmountedNode = (row): MediaNode => ({
     extension: null,
     is_video: null,
     source: null,
-    tags: row.tags,
+    tags: JSON.parse(row.tags),
     imageURL: null,
     imageHash: row.imageHash,
     previewURL: null
@@ -147,4 +149,13 @@ const addLocalFile = async (db, directories: Directory[], filepath: unknown): Pr
     });
 }
 
-export { getMediaNodes, getMediaDetail, getUnmountedMediaNodes, addLocalFile };
+/**
+ * PUT /media/:id: makes the JSON-URL-encoded array in `rawTags` the Media row's complete set of tags, then returns
+ * the row as GET /media/:id does. Throws a 400 for a malformed array and a 404 if there's no such row.
+ */
+const updateMediaTags = async (db, id: number, rawTags: unknown): Promise<MediaDetail> => {
+    await setMediaTags(db, id, parseJsonStringArray(rawTags, 'tags'));
+    return getMediaDetail(db, id);
+}
+
+export { getMediaNodes, getMediaDetail, getUnmountedMediaNodes, addLocalFile, updateMediaTags };

@@ -3,7 +3,7 @@ import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import request from 'supertest';
-import { createTestApp, FIXTURES_PATH } from '../helpers';
+import { createTestApp, FIXTURES_PATH, insertTagLink } from '../helpers';
 import { computeFileHash } from '../../service/hashService';
 import { startup } from '../../service/startupService';
 
@@ -72,8 +72,9 @@ describe('POST /media', () => {
     it('mounts an unmounted Media row when a file with its hash is added', async () => {
         const imageHash = await computeFileHash(path.join(FIXTURES_PATH, 'scene-a.png'));
         const { lastID } = await db.run(
-            `INSERT INTO Media (type, isMounted, tags, imageHash, sourceID) VALUES ('Local', 0, 'old-tag', ?, NULL)`, [imageHash]
+            `INSERT INTO Media (type, isMounted, imageHash, sourceID) VALUES ('Local', 0, ?, NULL)`, [imageHash]
         );
+        await insertTagLink(db, lastID, 'old-tag');
         const filepath = await addFile('scene-a.png');
         const res = await post({ filepath }).expect(200);
         assert.deepEqual(res.body, { id: lastID });
@@ -81,7 +82,7 @@ describe('POST /media', () => {
         const media = (await request(app).get(`/media/${lastID}`).expect(200)).body;
         assert.equal(media.isMounted, true);
         assert.equal(media.name, 'scene-a.png');
-        assert.equal(media.tags, 'old-tag');
+        assert.deepEqual(media.tags, ['old-tag']);
         await request(app).get('/media/unmounted').expect(200, []);
     });
 
