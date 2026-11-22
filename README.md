@@ -37,12 +37,36 @@ Compiled output lives only in `/build`, which is git-ignored and regenerated on 
 
 | Route    | Method | Function                                                                                              |
 | -------- | ------ | ----------------------------------------------------------------------------------------------------- |
-| `/media` | GET    | Returns a list of all images in the database.                                                         |
+| `/media` | GET    | Returns the mounted media, filtered by optional query parameters (see below).                         |
 | `/media` | *POST* | *this method doesn't actually exist, but if it did a short description of its function would go here* |
 
 
 *Detailed usage descriptions of endpoints and their usage will go under the headers below as they are created.*
 #### `/media`
+
+`GET /media` returns the mounted media, one item per Media node, ordered by `id`. Every parameter given must match (they combine with AND). With no parameters, every mounted item is returned. Unknown or repeated parameters, and malformed values, get a `400` that names the parameter.
+
+| Parameter   | Description |
+| ----------- | ----------- |
+| `name`      | Case-insensitive (ASCII letters only) substring of the file name. `%`, `_` and `\` are matched literally. |
+| `extension` | One of the supported file types, case-insensitive. `jpg` and `jpeg` match each other. Unsupported types get `400`. |
+| `is_video`  | `true` for videos, `false` for images. |
+| `hash`      | A sha256 hash, as `sha256:<64 hex>` or just `<64 hex>`, case-insensitive. Returns an array. Gets `404` if no mounted media has that hash. |
+| `tags`      | A JSON array, URL-encoded. Items are ANDed; an inner array is an OR group. A leading `-` negates a tag. `[]` applies no tag filter. Up to 100 terms. |
+| `count`     | A positive integer: return at most this many items, lowest ids first. |
+
+For example, the tags filter `["elf",["sfw","-nsfw"]]` (elf AND (sfw OR NOT nsfw)) is written in the URL as:
+
+```
+GET /media?tags=["elf",["sfw","-nsfw"]]        (decoded, for reading)
+GET /media?tags=%5B%22elf%22%2C%5B%22sfw%22%2C%22-nsfw%22%5D%5D   (URL-encoded, what you send)
+```
+
+**Note:** `name`, `extension` and `is_video` only match each item's *representative* file: the lowest-id file with that image hash, whose fields `GET /media` returns. When identical files share one Media node (say `scene-a.png` and `scene-a-copy.png`), searching for the other file's name or extension won't find the item. Which file is the representative depends on the order files were first indexed, so this can differ between machines. Use `GET /media/:id` to see every file behind an item. An option to search across all of an item's files is planned.
+
+#### `/tags`
+
+Tag names can't start with `-`, because a leading `-` means negation in the `tags` parameter of `/media`. Creating or renaming a tag to a name that starts with `-` (through `/tags` or `/media/:id`) gets `400`.
 
 #### `/collections`
 
@@ -88,17 +112,17 @@ The app is built by `createApp({ db, directories })` in `app.ts`, which has no s
 
 The features below are planned to be implemented. They are listed roughly in order of dependency and/or priority (features closer to the top should be implemented sooner to make less work for features towards the bottom). If we discover blockers, the list can be re-ordered.
 
-| Planned Feature                                                         | Description                                                                                                                                                                                                                        | Implemented? | Spec?                                      |
-| ----------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ | ------------------------------------------ |
+| Planned Feature                                                         | Description                                                                                                                                                                                                                        | Implemented? | Spec?                                                                  |
+| ----------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- | ------------------------------------------- |
 | Local Media Loading                                                     | Load media from local sources.                                                                                                                                                                                                     | ✅            | -                                          |
-| Persistence                                                             | Media nodes persist between server start/stop.                                                                                                                                                                                     | ✅            | [yes](specs/02-persistence/spec.md)           |
-| Local Media Data                                                        | Determine `width` and `height` for local media and add it to the imports.                                                                                                                                                          | ✅            | [yes](specs/04-local-media-data/spec.md)                                          |
+| Persistence                                                             | Media nodes persist between server start/stop.                                                                                                                                                                                     | ✅            | [yes](specs/02-persistence/spec.md)        |
+| Local Media Data                                                        | Determine `width` and `height` for local media and add it to the imports.                                                                                                                                                          | ✅            | [yes](specs/04-local-media-data/spec.md)   |
 | Testing Framework                                                       | Add a testing framework to the project to make unit and/or integration tests more accessible and reliable.                                                                                                                         | ✅            | [yes](specs/05-testing-framework/spec.md)  |
-| Convert to Typescript                                                   | Convert the last Javascript files (`app.js`, `bin/www`, `routes/`, `util/`) to Typescript with `import`/`export`.                                                                                                                 | ✅            | [yes](specs/05-convert-to-typescript/spec.md) |
-| Media Endpoints                                                         | Make the existing `/media` route reliable: answer `503` until startup sync finishes and add endpoints that expose CRUD functions on media nodes via API request.                                                                                                                                                           | ✅            | [yes](specs/06-media-route/spec.md)                                       |
-| Identity/Perceptual Hashing Split                  | Switches to SHA256 for all file identity hashing and moves perceptual hashing to background workers. Switches from `image-hash` decoding to `sharp` decoding.                                                                                                                                                | ✅            | [yes](specs/07-background-perceptual-hash/spec.md)                                          |
-| Hydrus Research                                                         | Review Hydrus's data model (tags, ratings, duplicate/alternate relationships, SHA-256 file hashes) so the features below are designed to sync with it later.                                                                       | ✅            | [yes](specs/08-hydrus-research/API/Hydrus%20API%20Research.md)                                          |
-| Tags                                                                    | Add tags to media, and expose endpoints that allow for media to be searched by tags.                                                                                                                                               | ✅            | [yes](specs/09-tags/spec.md)                                          |
+| Convert to Typescript                                                   | Convert the last Javascript files (`app.js`, `bin/www`, `routes/`, `util/`) to Typescript with `import`/`export`.                                                                                                                  | ✅            | [yes](specs/05-convert-to-typescript/spec.md) |
+| Media Endpoints                                                         | Make the existing `/media` route reliable: answer `503` until startup sync finishes and add endpoints that expose CRUD functions on media nodes via API request.                                                                   | ✅            | [yes](specs/06-media-route/spec.md)        |
+| Identity/Perceptual Hashing Split                                       | Switches to SHA256 for all file identity hashing and moves perceptual hashing to background workers. Switches from `image-hash` decoding to `sharp` decoding.                                                                      | ✅            | [yes](specs/07-background-perceptual-hash/spec.md) |
+| Hydrus Research                                                         | Review Hydrus's data model (tags, ratings, duplicate/alternate relationships, SHA-256 file hashes) so the features below are designed to sync with it later.                                                                       | ✅            | [yes](specs/08-hydrus-research/API/Hydrus%20API%20Research.md)  |
+| Tags                                                                    | Add tags to media, and expose endpoints that allow for media to be searched by tags.                                                                                                                                               | ✅            | [yes](specs/09-tags/spec.md)               |
 | Near-match comparison                                                   | Find pairs of images whose hashes are _close_ but not equal, and let the user decide what each pair is.                                                                                                                            | ❌            | [yes](specs/near-match-duplicates/spec.md) |
 | Remote Image Loading                                                    | Load media from an external API (i.e. boorus), choose what to add to the database (and save locally).                                                                                                                              | ❌            | -                                          |
 | User profiles                                                           | Optional profile system to associate user data and collections with different users.                                                                                                                                               | ❌            | -                                          |

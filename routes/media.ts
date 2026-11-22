@@ -1,17 +1,27 @@
 import { Router } from 'express';
 import createError from 'http-errors';
-import { getMediaNodes, getMediaDetail, getUnmountedMediaNodes, addLocalFile, updateMediaTags } from '../service/mediaService';
+import { searchMediaNodes, getMediaDetail, getUnmountedMediaNodes, addLocalFile, updateMediaTags } from '../service/mediaService';
 import { parseId } from './middleware';
 
 // Every route here sits behind requireDatabase (see app.ts), so startup sync has finished before any of them run.
 // Handlers are async and let errors through: Express 5 sends a rejected promise to the error handler in app.ts.
 const router = Router();
 
-/* GET every mounted media item, one per Media row, using its representative file. */
+/*
+ * GET the mounted media items, one per Media row, using its representative file, ordered by id. Every parameter given
+ * must match; with none, every mounted item comes back. Unknown or repeated parameters give a 400.
+ *   name      case-insensitive (ASCII only) substring of the file name
+ *   extension one of the supported file types; jpg and jpeg match each other
+ *   is_video  true or false
+ *   hash      sha256:<64 hex> or <64 hex>; a 404 if no mounted item has it
+ *   tags      JSON-URL-encoded array: items are ANDed, an inner array is an OR group, a leading - negates,
+ *             e.g. ["elf",["sfw","-nsfw"]] means elf AND (sfw OR NOT nsfw)
+ *   count     a positive integer: at most this many items, lowest ids first
+ */
 router.get('/', async (req, res) => {
     // the app's shared connection, opened in bin/www.ts
     const db = await req.app.locals.db;
-    res.json(await getMediaNodes(db));
+    res.json(await searchMediaNodes(db, req.query));
 });
 
 /* GET every unmounted media item. Registered before /:id, which would otherwise match it. */

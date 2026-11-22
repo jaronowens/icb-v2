@@ -9,6 +9,7 @@
 | `scene-a-small.png` | 128×96 | `scene-a.png` at half size: its own Media row (different bytes), but the same perceptual hash, which near-match will use. | claude |
 | `checker-b.jpg` | 40×40 | A different image, and the JPEG path. | claude |
 | `not-an-image.png` | - | Text with a `.png` extension: dimensions are `NULL`, and its perceptual hash is `none` (can't be decoded). | claude, broken |
+| `gradient-c.jpeg` | 48×32 | A small image with the `.jpeg` extension, so `?extension=jpg` and `?extension=jpeg` can be shown to match both spellings. | claude, meta:jpeg |
 | `transparent-corner.png` | 64×64 | Opaque shapes with one fully transparent quadrant: checks that transparent pixels hash as white, as they did with `image-hash`. | claude |
 | `notes.txt` | - | Unsupported file type: skipped by `syncDirectory`. | claude, broken |
 | --- | --- | --- | --- |

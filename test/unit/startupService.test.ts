@@ -17,6 +17,7 @@ const DIMENSIONS = {
     'scene-a-copy.png': [256, 192],
     'scene-a-small.png': [128, 96],
     'checker-b.jpg': [40, 40],
+    'gradient-c.jpeg': [48, 32],
     'not-an-image.png': [null, null],
     [BEIDOU]: [2480, 3508],
     'Roxanne.webp': [700, 1124],
@@ -56,14 +57,14 @@ describe('startup', () => {
         assert.notEqual(sceneA.mediaID, -1, 'scene-a.png is linked to a Media row');
         assert.equal(local['scene-a-copy.png'].mediaID, sceneA.mediaID);
 
-        // Every other file is its own Media row, including the resized copy: 15 files, with the exact copy merged away
+        // Every other file is its own Media row, including the resized copy: 16 files, with the exact copy merged away
         const others = Object.values(local).filter((row: any) => row.name !== 'scene-a.png' && row.name !== 'scene-a-copy.png');
         const mediaIDs = new Set(others.map((row: any) => row.mediaID));
         assert.equal(mediaIDs.size, others.length, 'no other files share a Media row');
         assert.ok(!mediaIDs.has(sceneA.mediaID));
 
         const media = await db.all('SELECT id, isMounted FROM Media');
-        assert.equal(media.length, 14);
+        assert.equal(media.length, 15);
         assert.ok(media.every(row => row.isMounted === 1), 'every Media row is mounted');
     });
 

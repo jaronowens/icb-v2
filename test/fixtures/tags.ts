@@ -16,6 +16,7 @@ const FIXTURE_TAGS: Record<string, string[]> = {
     '2148362390_preview_success-small-flip.gif': ['animated', 'series:helltaker'],
     '1337.jpg': ['series:deadlock', 'mina (deadlock)'],
     'RsniFBN.mp4': ['animated', 'video', 'alyssa liu'],
+    'gradient-c.jpeg': ['claude', 'meta:jpeg'],
     'image-variant-1.jpg': ['meta:variant', 'elf', 'sfw', 'high-resolution'],
     'image-variant-2.jpg': ['meta:variant', 'elf', 'nsfw'],
     'image-variant-1-resized.jpg': ['meta:variant', 'elf', 'sfw'],

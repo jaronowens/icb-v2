@@ -9,7 +9,7 @@ import { initializeLocalNode, isValidFile, getFileExtension, BASE_URL } from "./
 import { hashLocalNodes } from "./hashService";
 import { measureLocalNodes } from "./dimensionService";
 import { withTransaction } from "../util/transaction";
-import { parseJsonStringArray } from "../util/queryParams";
+import { parseJsonStringArray, parseMediaSearch } from "../util/queryParams";
 import { setMediaTags } from "./tagService";
 import { Directory } from "./startupService";
 
@@ -20,7 +20,8 @@ const toMediaNode = (row): MediaNode => ({
     width: row.width,
     height: row.height,
     extension: row.extension,
-    is_video: row.is_video,
+    // SQLite stores booleans as 1/0; the API answers with a real boolean
+    is_video: !!row.is_video,
     source: row.source,
     tags: JSON.parse(row.tags),
     imageURL: row.imageURL,
@@ -43,8 +44,21 @@ const unmountedNode = (row): MediaNode => ({
     previewURL: null
 });
 
-const getMediaNodes = async (db): Promise<MediaNode[]> => {
-    const rows = await getMedia(db);
+/**
+ * GET /media: the mounted media matching the query parameters in `rawQuery` (see parseMediaSearch), ordered by id.
+ * Throws a 400 for a malformed query, and a 404 for a hash that no mounted Media row has. A hash that exists but is
+ * ruled out by another filter gives [].
+ */
+const searchMediaNodes = async (db, rawQuery: Record<string, unknown>): Promise<MediaNode[]> => {
+    const search = parseMediaSearch(rawQuery);
+    const rows = await getMedia(db, search);
+    if (search.hash !== undefined && rows.length === 0) {
+        const media = await getMediaByHash(db, search.hash);
+        if (!media || !media.isMounted) {
+            throw createError(404, `No mounted media with hash ${search.hash}`);
+        }
+        return [];
+    }
     return rows.map(toMediaNode);
 }
 
@@ -57,7 +71,8 @@ const getMediaDetail = async (db, id: number): Promise<MediaDetail | null> => {
     if (!row.isMounted) {
         return { ...unmountedNode(row), isMounted: false, files: [] };
     }
-    return { ...toMediaNode(row), isMounted: true, files: await getLocalNodesForMedia(db, id) };
+    const files = (await getLocalNodesForMedia(db, id)).map(file => ({ ...file, is_video: !!file.is_video }));
+    return { ...toMediaNode(row), isMounted: true, files };
 }
 
 const getUnmountedMediaNodes = async (db) => {
@@ -158,4 +173,4 @@ const updateMediaTags = async (db, id: number, rawTags: unknown): Promise<MediaD
     return getMediaDetail(db, id);
 }
 
-export { getMediaNodes, getMediaDetail, getUnmountedMediaNodes, addLocalFile, updateMediaTags };
+export { searchMediaNodes, getMediaDetail, getUnmountedMediaNodes, addLocalFile, updateMediaTags };

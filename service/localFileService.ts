@@ -13,6 +13,9 @@ const BASE_URL: string = 'http://localhost:3000';
 
 const supportedFileTypes: string[] = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'mp4', 'webm'];
 
+/* Extensions that are the same file type spelled differently. A search for one matches all of them. */
+const EXTENSION_ALIASES: string[][] = [['jpg', 'jpeg']];
+
 /* Helpers */
 const getFileExtension = (url: string) => {
     const splitUrl = url.split('.');
@@ -152,4 +155,4 @@ const syncDirectory = async (directoryName: string, directoryPath: string, db, f
     console.log(`${directoryName}: ${hashedNew.length} new, ${hashedChanged.length} changed, ${unchangedCount} unchanged, ${measuredNodes.length} measured, ${missingSources.length} removed`);
 }
 
-export { syncDirectory, initializeLocalNode, isValidFile, getFileExtension, BASE_URL };
+export { syncDirectory, initializeLocalNode, isValidFile, getFileExtension, supportedFileTypes, EXTENSION_ALIASES, BASE_URL };

@@ -22,6 +22,13 @@ const normalizeTag = (raw: unknown): string => {
     return name;
 }
 
+/* Throws a 400 for a (normalized) name a new tag can't have: a leading "-" would read as negation in tag searches. */
+const assertAllowedTagName = (name: string): void => {
+    if (name.startsWith('-')) {
+        throw createError(400, 'A tag can\'t start with "-"');
+    }
+}
+
 /* Where a tag can be fetched. Relative, like the routes themselves. */
 const tagURL = (name: string): string => `/tags/${encodeURIComponent(name)}`;
 
@@ -52,6 +59,7 @@ const getTagDetail = async (db, rawName: unknown): Promise<TagDetail> => {
 /* Adds a tag. An existing tag is left as it is and reported with created: false. */
 const createTag = async (db, rawName: unknown): Promise<{ tag: TagRef, created: boolean }> => {
     const name = normalizeTag(rawName);
+    assertAllowedTagName(name);
     return withTransaction(db, async () => {
         // checked inside the lock, so two requests for the same tag can't both insert it
         const created = !(await getTagByName(db, name));
@@ -72,6 +80,7 @@ const renameOrMergeTag = async (db, rawName: unknown, rawNewName: unknown): Prom
         throw createError(400, 'name is required: { "name": "<new name>" }');
     }
     const newName = normalizeTag(rawNewName);
+    assertAllowedTagName(newName);
     return withTransaction(db, async () => {
         const tag = await findTag(db, name);
         if (newName !== tag.name) {
@@ -102,6 +111,8 @@ const removeTag = async (db, rawName: unknown): Promise<void> => {
  */
 const setMediaTags = async (db, mediaID: number, rawNames: unknown[]): Promise<void> => {
     const names = [...new Set(rawNames.map(normalizeTag))];
+    // before the transaction, so a bad name can't leave earlier names created
+    names.forEach(assertAllowedTagName);
     await withTransaction(db, async () => {
         if (!(await mediaExists(db, mediaID))) {
             throw createError(404, `Media ${mediaID} not found`);

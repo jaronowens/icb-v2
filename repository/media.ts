@@ -1,3 +1,5 @@
+import { TagTerm, MediaSearch } from '../entity/mediaSearch';
+
 const tableName: string = 'Media';
 
 /**
@@ -79,18 +81,67 @@ const refreshMediaSources = async (db) => {
     console.log(`Re-pointed sources for ${result.changes} media nodes.`);
 }
 
-/* Returns one entry per mounted Media row, using its representative Local file for names and URLs. */
-const getMedia = async (db) => {
-    const rows = await db.all(`
+/* Escapes LIKE's wildcards (and the escape character itself) so the input matches literally. Use with ESCAPE '\'. */
+const escapeLike = (value: string): string => value.replace(/[\\%_]/g, '\\$&');
+
+/* One tag term as an (NOT) EXISTS over the Media row's tags. The tag name is bound by the caller. */
+const tagTermClause = (term: TagTerm): string => `${term.negated ? 'NOT ' : ''}EXISTS (
+            SELECT 1 FROM Media_Tags JOIN Tags ON Tags.id = Media_Tags.tagID
+            WHERE Media_Tags.mediaID = Media.id AND Tags.name = ?)`;
+
+/**
+ * Returns one entry per mounted Media row that matches every filter in `search`, using its representative Local file
+ * for names and URLs, ordered by id. With no filters it returns every mounted row.
+ * Only fixed SQL text is interpolated: every value from `search` is bound.
+ */
+const getMedia = async (db, search: MediaSearch = {}) => {
+    const where: string[] = ['Media.isMounted = 1'];
+    const params: unknown[] = [];
+
+    // name, extension and is_video match the representative file (Media.sourceID) only, not every duplicate
+    // behind the row. That's documented in README.md; searching all files is a planned option.
+    if (search.name !== undefined) {
+        // LIKE folds case for ASCII letters only
+        where.push(`Local.name LIKE ? ESCAPE '\\'`);
+        params.push(`%${escapeLike(search.name)}%`);
+    }
+    if (search.extensions !== undefined) {
+        where.push(`Local.extension IN (${search.extensions.map(() => '?').join(', ')})`);
+        params.push(...search.extensions);
+    }
+    if (search.isVideo !== undefined) {
+        // BOOL has NUMERIC affinity, so the JS booleans written by insertLocalNodes are stored as 1/0
+        where.push('Local.is_video = ?');
+        params.push(search.isVideo ? 1 : 0);
+    }
+    if (search.hash !== undefined) {
+        where.push('Media.imageHash = ?');
+        params.push(search.hash);
+    }
+    // terms in a group are ORed; the groups are ANDed with everything else
+    for (const group of search.tags ?? []) {
+        where.push(`(${group.map(term => {
+            params.push(term.name);
+            return tagTermClause(term);
+        }).join(' OR ')})`);
+    }
+
+    let limit = '';
+    if (search.count !== undefined) {
+        limit = 'LIMIT ?';
+        params.push(search.count);
+    }
+
+    return db.all(`
         SELECT Media.id AS id, Media.imageHash, ${TAGS_COLUMN},
                Local.name, Local.extension, Local.is_video, Local.imageURL, Local.previewURL, Local.source,
                Local.width, Local.height
         FROM ${tableName}
         JOIN Local ON Local.id = Media.sourceID
-        WHERE Media.isMounted = 1;
-    `);
-
-    return rows;
+        WHERE ${where.join('\n          AND ')}
+        ORDER BY Media.id
+        ${limit};
+    `, params);
 }
 
 const synchronizeMedia = async (db, reset: boolean = true) => {

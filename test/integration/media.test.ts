@@ -8,6 +8,7 @@ const DIMENSIONS = {
     'scene-a-copy.png': [256, 192],
     'scene-a-small.png': [128, 96],
     'checker-b.jpg': [40, 40],
+    'gradient-c.jpeg': [48, 32],
     'not-an-image.png': [null, null],
     '__beidou_genshin_impact_drawn_by_packge__26d9f313e83b566da8a9116ec71be5d4.jpg': [2480, 3508],
     'Roxanne.webp': [700, 1124],
@@ -32,8 +33,8 @@ describe('GET /media', () => {
     it('returns one entry per distinct image, with its real width and height', async () => {
         const res = await request(app).get('/media').expect(200).expect('Content-Type', /json/);
 
-        // 15 fixtures, with scene A's byte-for-byte copy merged into it. The resized copy is its own entry.
-        assert.equal(res.body.length, 14);
+        // 16 fixtures, with scene A's byte-for-byte copy merged into it. The resized copy is its own entry.
+        assert.equal(res.body.length, 15);
         // Which scene A file is the representative depends on directory listing order, so check
         // each entry against its own file instead of expecting a particular name.
         const sceneA = res.body.filter(entry => entry.name === 'scene-a.png' || entry.name === 'scene-a-copy.png');
@@ -56,6 +57,13 @@ describe('GET /media', () => {
         const res = await request(app).get('/media').expect(200);
         const videos = res.body.filter(entry => entry.is_video).map(entry => entry.name);
         assert.deepEqual(videos, ['RsniFBN.mp4']);
+    });
+
+    it('answers is_video as a boolean, not as SQLite\'s 1/0', async () => {
+        const res = await request(app).get('/media').expect(200);
+        assert.ok(res.body.every(entry => typeof entry.is_video === 'boolean'));
+        const detail = await request(app).get(`/media/${res.body[0].id}`).expect(200);
+        assert.ok(detail.body.files.every(file => typeof file.is_video === 'boolean'));
     });
 
     for (const [name, contentType] of [

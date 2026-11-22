@@ -61,8 +61,8 @@ describe('GET /tags', () => {
     });
 
     it('counts each Media row once, so duplicate files count as one', async () => {
-        // scene-a, scene-a-small, checker-b, not-an-image and transparent-corner; scene-a-copy shares scene-a's row
-        await request(app).get('/tags/claude').expect(200, { name: 'claude', count: 5 });
+        // scene-a, scene-a-small, checker-b, gradient-c, not-an-image and transparent-corner; scene-a-copy shares scene-a's row
+        await request(app).get('/tags/claude').expect(200, { name: 'claude', count: 6 });
     });
 
     it('finds tags with namespaces, spaces and parentheses', async () => {
@@ -103,6 +103,16 @@ describe('POST /tags/:tagName', () => {
     it('answers 400 for a name that is only whitespace', async () => {
         await request(app).post(tagPath('   ')).expect(400);
     });
+
+    it('answers 400 for a name starting with "-", even after trimming', async () => {
+        await request(app).post('/tags/-x').expect(400);
+        await request(app).post('/tags/%20-x').expect(400);
+        await request(app).get('/tags/-x').expect(404);
+    });
+
+    it('allows a "-" inside a name', async () => {
+        await request(app).post('/tags/x-y').expect(201);
+    });
 });
 
 describe('PUT /tags/:tagName', () => {
@@ -129,7 +139,7 @@ describe('PUT /tags/:tagName', () => {
 
     it('moves media that didn\'t have the target tag over to it', async () => {
         await request(app).put('/tags/potionomics').send({ name: 'claude' }).expect(200);
-        await request(app).get('/tags/claude').expect(200, { name: 'claude', count: 6 });
+        await request(app).get('/tags/claude').expect(200, { name: 'claude', count: 7 });
         assert.deepEqual((await entryNamed(app, 'Roxanne.webp')).tags, ['claude', 'roxanne']);
     });
 
@@ -141,6 +151,13 @@ describe('PUT /tags/:tagName', () => {
     it('answers 404 for a tag that doesn\'t exist', async () => {
         await request(app).put('/tags/no-such-tag').send({ name: 'anything' }).expect(404);
         await request(app).get('/tags/anything').expect(404);
+    });
+
+    it('answers 400 for a new name starting with "-", and changes nothing', async () => {
+        const res = await request(app).put('/tags/elf').send({ name: '-elf' }).expect(400);
+        assert.ok(res.body.error);
+        await request(app).get('/tags/elf').expect(200, { name: 'elf', count: 3 });
+        await request(app).get('/tags/-elf').expect(404);
     });
 
     for (const [label, body] of [['no body', undefined], ['no name', {}], ['a non-string name', { name: 5 }], ['an empty name', { name: '  ' }]]) {
@@ -222,6 +239,7 @@ describe('PUT /media/:id', () => {
         ['an empty tag', tagsQuery(['elf', '   '])],
         ['tags[]=', 'tags[]=elf'],
         ['tags given twice', 'tags=%5B%5D&tags=%5B%5D'],
+        ['a tag starting with "-"', tagsQuery(['ok', '-x'])],
     ]) {
         it(`answers 400 for ${label}, and changes nothing`, async () => {
             const entry = await entryNamed(app, 'Roxanne.webp');
