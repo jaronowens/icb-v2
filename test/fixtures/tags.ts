@@ -10,6 +10,7 @@ const FIXTURE_TAGS: Record<string, string[]> = {
     'checker-b.jpg': ['claude'],
     'not-an-image.png': ['claude', 'broken'],
     'transparent-corner.png': ['claude'],
+    'exif-rotated.jpg': ['claude', 'meta:exif'],
     '__beidou_genshin_impact_drawn_by_packge__26d9f313e83b566da8a9116ec71be5d4.jpg': ['beidou', 'series:genshin impact', '1girl'],
     'Roxanne.webp': ['roxanne', 'potionomics'],
     'amberlyn.jpg': ['original', 'source:pinterest'],

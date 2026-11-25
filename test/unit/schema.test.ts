@@ -25,6 +25,34 @@ describe('migrate', () => {
         const mediaColumns = (await db.all('PRAGMA table_info(Media)')).map(column => column.name);
         assert.ok(mediaColumns.includes('perceptualHash'), 'Media has perceptualHash (migration 3)');
         assert.ok(!mediaColumns.includes('tags'), 'Media.tags is replaced by the Tags table (migration 4)');
+        assert.ok(!localColumns.includes('previewURL'), 'previewURL is computed, not stored (migration 5)');
+    });
+
+    it('keeps every Local row and drops previewURL (4 -> 5)', async () => {
+        const old = await open({ filename: ':memory:', driver: sqlite3.Database });
+        try {
+            await migrateTo(old, 4);
+            assert.ok((await old.all('PRAGMA table_info(Local)')).some(column => column.name === 'previewURL'));
+            for (const name of ['a.png', 'b.jpg']) {
+                await old.run(
+                    `INSERT INTO Local (name, extension, is_video, directoryPath, source, imageURL, previewURL, size, mtimeMs, imageHash, mediaID)
+                     VALUES (?, 'png', 0, '/d', ?, ?, ?, 10, 20, ?, -1)`,
+                    [name, `/d/${name}`, `http://x/${name}`, `http://x/${name}`, `sha256:${name}`]
+                );
+            }
+            await migrate(old);
+            assert.equal((await old.get('PRAGMA user_version')).user_version, CURRENT_VERSION);
+            assert.ok(!(await old.all('PRAGMA table_info(Local)')).some(column => column.name === 'previewURL'));
+            assert.deepEqual(
+                await old.all('SELECT name, imageURL, imageHash FROM Local ORDER BY id'),
+                [
+                    { name: 'a.png', imageURL: 'http://x/a.png', imageHash: 'sha256:a.png' },
+                    { name: 'b.jpg', imageURL: 'http://x/b.jpg', imageHash: 'sha256:b.jpg' },
+                ]
+            );
+        } finally {
+            await old.close();
+        }
     });
 
     it('keeps Media rows and their ids when moving tags into their own table (3 -> 4)', async () => {

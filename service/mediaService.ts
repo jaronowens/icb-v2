@@ -1,7 +1,7 @@
 import * as path from 'node:path';
 import { stat } from 'node:fs/promises';
 import createError from 'http-errors';
-import { MediaNode, MediaDetail } from "../entity/mediaNode";
+import { MediaNode, MediaFile, MediaDetail } from "../entity/mediaNode";
 import { localFileNode } from "../entity/localFileNode";
 import { getMedia, getMediaById, getUnmountedMedia, getMediaByHash, insertMedia, mountMedia } from "../repository/media";
 import { insertLocalNodes, getLocalNodesForMedia, getLocalNodeBySource, linkLocalNode } from "../repository/local";
@@ -12,6 +12,7 @@ import { withTransaction } from "../util/transaction";
 import { parseJsonStringArray, parseMediaSearch } from "../util/queryParams";
 import { setMediaTags } from "./tagService";
 import { Directory } from "./startupService";
+import { previewURL } from "./thumbnailSettings";
 
 /* A row from getMedia or getMediaById as a GET /media entry. Keeps the key order GET /media has always had. */
 const toMediaNode = (row): MediaNode => ({
@@ -26,7 +27,7 @@ const toMediaNode = (row): MediaNode => ({
     tags: JSON.parse(row.tags),
     imageURL: row.imageURL,
     imageHash: row.imageHash,
-    previewURL: row.previewURL
+    previewURL: previewURL(row.imageURL, row.imageHash, row.extension)
 });
 
 /* An unmounted Media row: only its own fields, with everything that comes from a Local file set to null. */
@@ -71,7 +72,16 @@ const getMediaDetail = async (db, id: number): Promise<MediaDetail | null> => {
     if (!row.isMounted) {
         return { ...unmountedNode(row), isMounted: false, files: [] };
     }
-    const files = (await getLocalNodesForMedia(db, id)).map(file => ({ ...file, is_video: !!file.is_video }));
+    // each file's preview uses its own imageHash, which getLocalNodesForMedia selects only for this
+    const files: MediaFile[] = (await getLocalNodesForMedia(db, id)).map(file => ({
+        id: file.id,
+        name: file.name,
+        extension: file.extension,
+        is_video: !!file.is_video,
+        imageURL: file.imageURL,
+        previewURL: previewURL(file.imageURL, file.imageHash, file.extension),
+        source: file.source
+    }));
     return { ...toMediaNode(row), isMounted: true, files };
 }
 

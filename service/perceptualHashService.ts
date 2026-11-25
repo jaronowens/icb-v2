@@ -6,12 +6,12 @@ import { Worker } from 'node:worker_threads';
 import 'sharp';
 import { getMediaNeedingPerceptualHash, setPerceptualHashes } from '../repository/media';
 import { withTransaction } from '../util/transaction';
+import { IDLE_STATUS, JobStatus } from './jobStatus';
 import { PERCEPTUAL_TYPES, PHASH_PREFIX, UNHASHABLE } from './perceptualHashSettings';
 import { HashRequest, HashResponse } from './perceptualHashWorker';
 
-type PerceptualHashState = 'idle' | 'running' | 'failed';
-type PerceptualHashStatus = { state: PerceptualHashState, done: number, total: number };
-const IDLE_STATUS: PerceptualHashStatus = { state: 'idle', done: 0, total: 0 };
+/* The shared job status shape (see jobStatus.ts), under the name existing code uses. */
+type PerceptualHashStatus = JobStatus;
 
 type PerceptualHashJob = {
     /* Starts a pass, or queues one more if a pass is running. */
@@ -25,6 +25,12 @@ type JobOptions = {
     workers?: number,
     /* Called after each pass, with the number of Media rows it handled. For tests. */
     onPassEnd?: (handled: number) => void,
+    /*
+     * Called when the job goes idle: its loop ended with no pass pending, whether it succeeded or failed. Once per idle
+     * transition. A trigger that arrives mid-pass defers it until that extra pass ends. bin/www.ts starts the thumbnail
+     * job from it.
+     */
+    onIdle?: () => void,
 };
 
 /* Results are written in batches, so stopping mid-pass loses at most one batch. */
@@ -147,7 +153,7 @@ const runPool = (requests: HashRequest[], size: number, onResponse: (response: H
  * Each pass hashes the mounted Media rows that need it on a fresh pool of worker threads, so decoding never blocks
  * requests, and terminates the pool when it's done. `db` may be the connection or the promise for one.
  */
-const createPerceptualHashJob = (db, { workers = defaultWorkerCount(), onPassEnd }: JobOptions = {}): PerceptualHashJob => {
+const createPerceptualHashJob = (db, { workers = defaultWorkerCount(), onPassEnd, onIdle }: JobOptions = {}): PerceptualHashJob => {
     let status: PerceptualHashStatus = { ...IDLE_STATUS };
     let pending = false;
     let loop: Promise<void> | null = null;
@@ -225,6 +231,12 @@ const createPerceptualHashJob = (db, { workers = defaultWorkerCount(), onPassEnd
                 if (pending) {
                     pending = false;
                     trigger();
+                    return;
+                }
+                try {
+                    onIdle?.();
+                } catch (err) {
+                    console.error('Perceptual hash onIdle callback failed:', err);
                 }
             });
     };

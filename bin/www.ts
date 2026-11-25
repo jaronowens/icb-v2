@@ -11,6 +11,8 @@ import { open } from 'sqlite';
 import { createApp } from '../app';
 import { startup } from '../service/startupService';
 import { createPerceptualHashJob, workerCountFromEnv } from '../service/perceptualHashService';
+import { createThumbnailService } from '../service/thumbnailService';
+import { createThumbnailJob } from '../service/thumbnailJob';
 import directories from '../directories.json';
 
 const debug = createDebug('icb-v2:server');
@@ -38,11 +40,21 @@ ready.catch(err => {
 /**
  * Fill in perceptual hashes in the background once the database is ready (see service/perceptualHashService.ts).
  * POST /media triggers it again for new images.
+ *
+ * Then make thumbnails (see service/thumbnailJob.ts). The thumbnail job starts whenever the perceptual hash job goes
+ * idle, so the two never compete for CPU and the threadpool, and one trigger covers both: a new image's thumbnail
+ * follows its perceptual hash. Until the job reaches an image, /thumbnails makes its thumbnail on request. The cache
+ * folder (THUMBNAIL_DIR) isn't created until the first thumbnail is written.
  */
 
-const perceptualHashing = createPerceptualHashJob(dbConnection, { workers: workerCountFromEnv() });
+const thumbnails = createThumbnailService({ dir: process.env.THUMBNAIL_DIR || './db/thumbnails' });
+const thumbnailJob = createThumbnailJob(dbConnection, thumbnails);
+const perceptualHashing = createPerceptualHashJob(dbConnection, {
+  workers: workerCountFromEnv(),
+  onIdle: () => thumbnailJob.trigger(),
+});
 ready.then(() => perceptualHashing.trigger(), () => {});
-const app = createApp({ db: dbConnection, directories: directories, ready, perceptualHashing });
+const app = createApp({ db: dbConnection, directories: directories, ready, perceptualHashing, thumbnails, thumbnailJob });
 
 /**
  * Get port from environment and store in Express.

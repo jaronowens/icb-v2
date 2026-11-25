@@ -19,7 +19,7 @@ describe('error responses', () => {
         } finally {
             console.error = consoleError;
         }
-        await request(app).get('/status').expect(200, { database: 'ready', perceptualHashing: { state: 'idle', done: 0, total: 0 } });
+        await request(app).get('/status').expect(200, { database: 'ready', perceptualHashing: { state: 'idle', done: 0, total: 0 }, thumbnails: { state: 'idle', done: 0, total: 0 } });
         await request(app).get('/media/unmounted').expect(200, []);
     });
 

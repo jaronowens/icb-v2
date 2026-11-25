@@ -10,7 +10,7 @@ interface MediaNode {
     tags: string[]; // sorted by name, [] if it has none
     imageURL: string;
     imageHash: string;
-    previewURL: string;
+    previewURL: string; // a thumbnail for jpg/jpeg/png/webp, otherwise the same as imageURL. null for unmounted media
 }
 
 /* One Local file behind a Media row. */
@@ -20,7 +20,7 @@ interface MediaFile {
     extension: string;
     is_video: boolean;
     imageURL: string;
-    previewURL: string;
+    previewURL: string; // a thumbnail for jpg/jpeg/png/webp, otherwise the same as imageURL
     source: string;
 }
 

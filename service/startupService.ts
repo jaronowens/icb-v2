@@ -11,7 +11,10 @@ type Directory = { name: string, path: string };
 // in paths, so only allow names that are always safe.
 const VALID_DIRECTORY_NAME = /^[A-Za-z0-9_-]+$/;
 
-const isValidDirectoryName = (name: string): boolean => VALID_DIRECTORY_NAME.test(name);
+// 'thumbnails' is reserved: /thumbnails serves the thumbnail cache (specs/10-thumbnails), so a directory can't take that path.
+const RESERVED_DIRECTORY_NAMES = ['thumbnails'];
+
+const isValidDirectoryName = (name: string): boolean => VALID_DIRECTORY_NAME.test(name) && !RESERVED_DIRECTORY_NAMES.includes(name);
 
 /**
  * Brings the database up to date with the directories on disk: migrates the schema, syncs each directory,

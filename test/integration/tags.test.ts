@@ -61,8 +61,8 @@ describe('GET /tags', () => {
     });
 
     it('counts each Media row once, so duplicate files count as one', async () => {
-        // scene-a, scene-a-small, checker-b, gradient-c, not-an-image and transparent-corner; scene-a-copy shares scene-a's row
-        await request(app).get('/tags/claude').expect(200, { name: 'claude', count: 6 });
+        // scene-a, scene-a-small, checker-b, gradient-c, not-an-image, transparent-corner and exif-rotated; scene-a-copy shares scene-a's row
+        await request(app).get('/tags/claude').expect(200, { name: 'claude', count: 7 });
     });
 
     it('finds tags with namespaces, spaces and parentheses', async () => {
@@ -139,7 +139,7 @@ describe('PUT /tags/:tagName', () => {
 
     it('moves media that didn\'t have the target tag over to it', async () => {
         await request(app).put('/tags/potionomics').send({ name: 'claude' }).expect(200);
-        await request(app).get('/tags/claude').expect(200, { name: 'claude', count: 7 });
+        await request(app).get('/tags/claude').expect(200, { name: 'claude', count: 8 });
         assert.deepEqual((await entryNamed(app, 'Roxanne.webp')).tags, ['claude', 'roxanne']);
     });
 

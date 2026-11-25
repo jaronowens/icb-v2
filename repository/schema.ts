@@ -1,5 +1,5 @@
 /* Schema version, stored in PRAGMA user_version. Bump it and add an entry to `migrations` to change the schema. */
-const CURRENT_VERSION: number = 4;
+const CURRENT_VERSION: number = 5;
 
 /**
  * Migration `v` takes the database from version v - 1 to version v.
@@ -58,6 +58,10 @@ const migrations: Record<number, (db) => Promise<void>> = {
         // the primary key covers lookups by mediaID; this covers counts, renames and deletes by tag
         await db.run('CREATE INDEX idx_media_tags_tagID ON Media_Tags(tagID)');
         await db.run('ALTER TABLE Media DROP COLUMN tags');
+    },
+    // 4 -> 5: previewURL is computed when a response is built, so the stored copy of imageURL goes (specs/10-thumbnails).
+    5: async (db) => {
+        await db.run('ALTER TABLE Local DROP COLUMN previewURL');
     },
 };
 

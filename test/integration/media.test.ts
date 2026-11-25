@@ -20,6 +20,7 @@ const DIMENSIONS = {
     'image-variant-2.jpg': [2605, 4096],
     'image-variant-1-resized.jpg': [850, 1337],
     'transparent-corner.png': [64, 64],
+    'exif-rotated.jpg': [80, 120],
 };
 
 const MEDIA_NODE_KEYS = ['id', 'name', 'width', 'height', 'extension', 'is_video', 'source', 'tags', 'imageURL', 'imageHash', 'previewURL'];
@@ -33,8 +34,8 @@ describe('GET /media', () => {
     it('returns one entry per distinct image, with its real width and height', async () => {
         const res = await request(app).get('/media').expect(200).expect('Content-Type', /json/);
 
-        // 16 fixtures, with scene A's byte-for-byte copy merged into it. The resized copy is its own entry.
-        assert.equal(res.body.length, 15);
+        // 17 fixtures, with scene A's byte-for-byte copy merged into it. The resized copy is its own entry.
+        assert.equal(res.body.length, 16);
         // Which scene A file is the representative depends on directory listing order, so check
         // each entry against its own file instead of expecting a particular name.
         const sceneA = res.body.filter(entry => entry.name === 'scene-a.png' || entry.name === 'scene-a-copy.png');
@@ -50,6 +51,41 @@ describe('GET /media', () => {
         const res = await request(app).get('/media').expect(200);
         for (const entry of res.body) {
             assert.deepEqual(Object.keys(entry), MEDIA_NODE_KEYS);
+        }
+    });
+
+    it('computes previewURL: a thumbnail for decodable types, the original for the rest', async () => {
+        const res = await request(app).get('/media').expect(200);
+        const THUMBNAIL_FORM = /^http:\/\/localhost:3000\/thumbnails\/([0-9a-f]{2})\/([0-9a-f]{64})-900\.webp$/;
+        for (const entry of res.body) {
+            if (['jpg', 'jpeg', 'png', 'webp'].includes(entry.extension)) {
+                const match = THUMBNAIL_FORM.exec(entry.previewURL);
+                assert.ok(match, `${entry.name} has a thumbnail previewURL`);
+                assert.equal(match[2], entry.imageHash.replace('sha256:', ''));
+                assert.equal(match[1], match[2].slice(0, 2));
+            } else {
+                assert.equal(entry.previewURL, entry.imageURL, entry.name);
+            }
+        }
+        assert.ok(res.body.some(entry => entry.extension === 'gif'));
+        assert.ok(res.body.some(entry => entry.extension === 'mp4'));
+    });
+
+    it('serves every previewURL: a webp thumbnail for decodable types, the original for the rest', async () => {
+        const res = await request(app).get('/media').expect(200);
+        for (const entry of res.body) {
+            const url = new URL(entry.previewURL).pathname;
+            if (['jpg', 'jpeg', 'png', 'webp'].includes(entry.extension)) {
+                if (entry.name === 'not-an-image.png') {
+                    await request(app).get(url).expect(302);    // can't be decoded: redirects to the original
+                } else {
+                    await request(app).get(url).expect(200).expect('Content-Type', 'image/webp');
+                }
+            } else {
+                const expected = entry.extension === 'gif' ? 'image/gif' : entry.extension === 'mp4' ? 'video/mp4' : null;
+                assert.ok(expected, `${entry.name}: unexpected type ${entry.extension}`);
+                await request(app).get(url).expect(200).expect('Content-Type', expected);
+            }
         }
     });
 
@@ -110,6 +146,19 @@ describe('GET /media/:id and /media/unmounted', () => {
         assert.equal(files[0].source, entry.source, 'representative first');
         for (const file of files) {
             assert.deepEqual(Object.keys(file), FILE_KEYS);
+            assert.equal(file.previewURL, entry.previewURL, 'duplicates share one thumbnail');
+        }
+    });
+
+    it('computes previewURL for each file in GET /media/:id the same way as GET /media', async () => {
+        const list = await request(app).get('/media').expect(200);
+        for (const entry of list.body) {
+            const detail = await request(app).get(`/media/${entry.id}`).expect(200);
+            assert.equal(detail.body.previewURL, entry.previewURL, entry.name);
+            for (const file of detail.body.files) {
+                const decodable = ['jpg', 'jpeg', 'png', 'webp'].includes(file.extension);
+                assert.equal(file.previewURL, decodable ? entry.previewURL : file.imageURL, file.name);
+            }
         }
     });
 

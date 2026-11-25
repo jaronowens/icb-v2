@@ -11,6 +11,7 @@
 | `not-an-image.png` | - | Text with a `.png` extension: dimensions are `NULL`, and its perceptual hash is `none` (can't be decoded). | claude, broken |
 | `gradient-c.jpeg` | 48×32 | A small image with the `.jpeg` extension, so `?extension=jpg` and `?extension=jpeg` can be shown to match both spellings. | claude, meta:jpeg |
 | `transparent-corner.png` | 64×64 | Opaque shapes with one fully transparent quadrant: checks that transparent pixels hash as white, as they did with `image-hash`. | claude |
+| `exif-rotated.jpg` | 120×80 stored, shown 80×120 | EXIF orientation 6 (turn 90° clockwise to show). The stored pixels have a red square in the top-left corner and a blue bar along the top edge, so the right way up the square is top-right and the bar runs down the right side. Checks that dimensions and thumbnails use the shown size. Made after `image-hash` was removed, so it isn't in `goldenHashes.ts`. | claude, meta:exif |
 | `notes.txt` | - | Unsupported file type: skipped by `syncDirectory`. | claude, broken |
 | --- | --- | --- | --- |
 | `__beidou_genshin_impact_drawn_by_packge__26d9f313e83b566da8a9116ec71be5d4.jpg` | 2480 x 3508 | A real JPG sample. | beidou, series:genshin impact, 1girl |

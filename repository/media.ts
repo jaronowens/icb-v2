@@ -134,7 +134,7 @@ const getMedia = async (db, search: MediaSearch = {}) => {
 
     return db.all(`
         SELECT Media.id AS id, Media.imageHash, ${TAGS_COLUMN},
-               Local.name, Local.extension, Local.is_video, Local.imageURL, Local.previewURL, Local.source,
+               Local.name, Local.extension, Local.is_video, Local.imageURL, Local.source,
                Local.width, Local.height
         FROM ${tableName}
         JOIN Local ON Local.id = Media.sourceID
@@ -164,7 +164,7 @@ const synchronizeMedia = async (db, reset: boolean = true) => {
 const getMediaById = async (db, id: number) => {
     return db.get(`
         SELECT Media.id AS id, Media.imageHash, ${TAGS_COLUMN}, Media.isMounted,
-               Local.name, Local.extension, Local.is_video, Local.imageURL, Local.previewURL, Local.source,
+               Local.name, Local.extension, Local.is_video, Local.imageURL, Local.source,
                Local.width, Local.height
         FROM ${tableName}
         LEFT JOIN Local ON Local.id = Media.sourceID
@@ -222,6 +222,34 @@ const getMediaNeedingPerceptualHash = async (db, types: string[], prefix: string
     `, [...types, unhashable, prefix.length, prefix]);
 }
 
+/*
+ * The mounted Media rows the thumbnail job should look at: representative files of `types`, with a sha256 hash (the hex
+ * names the thumbnail), except images the perceptual hash job found undecodable. Rows still NULL are included.
+ */
+const getMediaNeedingThumbnail = async (db, types: string[], unhashable: string): Promise<{ id: number, imageHash: string, source: string }[]> => {
+    const placeholders = types.map(() => '?').join(', ');
+    return db.all(`
+        SELECT Media.id AS id, Media.imageHash AS imageHash, Local.source AS source
+        FROM ${tableName}
+        JOIN Local ON Local.id = Media.sourceID
+        WHERE Media.isMounted = 1
+          AND lower(Local.extension) IN (${placeholders})
+          AND (Media.perceptualHash IS NULL OR Media.perceptualHash != ?)
+          AND Media.imageHash LIKE 'sha256:%'
+        ORDER BY Media.id;
+    `, [...types, unhashable]);
+}
+
+/* The representative file of a mounted Media row, for the /thumbnails fallback. Undefined if there's no such row. */
+const getThumbnailSource = async (db, imageHash: string): Promise<{ source: string, extension: string, imageURL: string } | undefined> => {
+    return db.get(`
+        SELECT Local.source, Local.extension, Local.imageURL
+        FROM ${tableName}
+        JOIN Local ON Local.id = Media.sourceID
+        WHERE Media.imageHash = ? AND Media.isMounted = 1;
+    `, [imageHash]);
+}
+
 /* Stores perceptual hashes. Doesn't open its own transaction: the caller runs it inside one. */
 const setPerceptualHashes = async (db, results: { id: number, value: string }[]) => {
     if (results.length === 0) {
@@ -239,6 +267,8 @@ const setPerceptualHashes = async (db, results: { id: number, value: string }[])
 
 export {
     getMediaNeedingPerceptualHash,
+    getMediaNeedingThumbnail,
+    getThumbnailSource,
     setPerceptualHashes,
     populateMediaFromSource,
     syncUnlinkedLocalNodes,

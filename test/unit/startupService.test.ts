@@ -1,5 +1,5 @@
 import * as assert from 'node:assert/strict';
-import { startup } from '../../service/startupService';
+import { startup, isValidDirectoryName } from '../../service/startupService';
 import { createTestDb, fixtureDirectories } from '../helpers';
 
 /* Local rows keyed by file name. */
@@ -29,6 +29,8 @@ const DIMENSIONS = {
     'image-variant-2.jpg': [2605, 4096],
     'image-variant-1-resized.jpg': [850, 1337],
     'transparent-corner.png': [64, 64],
+    // stored 120×80 with EXIF orientation 6: the displayed size is stored
+    'exif-rotated.jpg': [80, 120],
 };
 
 describe('startup', () => {
@@ -57,14 +59,14 @@ describe('startup', () => {
         assert.notEqual(sceneA.mediaID, -1, 'scene-a.png is linked to a Media row');
         assert.equal(local['scene-a-copy.png'].mediaID, sceneA.mediaID);
 
-        // Every other file is its own Media row, including the resized copy: 16 files, with the exact copy merged away
+        // Every other file is its own Media row, including the resized copy: 17 files, with the exact copy merged away
         const others = Object.values(local).filter((row: any) => row.name !== 'scene-a.png' && row.name !== 'scene-a-copy.png');
         const mediaIDs = new Set(others.map((row: any) => row.mediaID));
         assert.equal(mediaIDs.size, others.length, 'no other files share a Media row');
         assert.ok(!mediaIDs.has(sceneA.mediaID));
 
         const media = await db.all('SELECT id, isMounted FROM Media');
-        assert.equal(media.length, 15);
+        assert.equal(media.length, 16);
         assert.ok(media.every(row => row.isMounted === 1), 'every Media row is mounted');
     });
 
@@ -97,5 +99,22 @@ describe('startup', () => {
         await startup(db, fixtureDirectories);
         assert.deepEqual(await db.all('SELECT * FROM Local ORDER BY id'), localBefore);
         assert.deepEqual(await db.all('SELECT * FROM Media ORDER BY id'), mediaBefore);
+    });
+});
+
+describe('reserved directory names', () => {
+    it('rejects thumbnails, which /thumbnails serves', () => {
+        assert.equal(isValidDirectoryName('thumbnails'), false);
+        assert.equal(isValidDirectoryName('fixtures'), true);
+    });
+
+    it('skips a directory named thumbnails like any other invalid name', async () => {
+        const db = await createTestDb();
+        try {
+            await startup(db, [{ name: 'thumbnails', path: fixtureDirectories[0].path }]);
+            assert.equal((await db.get('SELECT COUNT(*) AS n FROM Local')).n, 0);
+        } finally {
+            await db.close();
+        }
     });
 });

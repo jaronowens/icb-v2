@@ -41,7 +41,6 @@ const initializeLocalNode = (fileDir: string, directoryPath: string, fileUrl: st
         is_video: (nodeExtension === 'mp4' || nodeExtension === 'webm') ? true : false,
         imageURL: `${fileDir}/${fileUrl}`,
         imageHash: '', // filled in by hashLocalNodes
-        previewURL: `${fileDir}/${fileUrl}`,
         source: `${directoryPath}/${fileUrl}`,
         directoryPath,
         size,

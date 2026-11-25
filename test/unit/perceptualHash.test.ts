@@ -117,6 +117,79 @@ describe('perceptual hash job', () => {
     });
 });
 
+/* onIdle is how bin/www.ts starts the thumbnail job: once each time the job goes idle, and never while a pass is pending. */
+describe('perceptual hash job onIdle', () => {
+    it('is called once after a pass with no new trigger', async () => {
+        let idle = 0;
+        const { db, job } = await createTestApp({
+            perceptualHashing: db => createPerceptualHashJob(db, { workers: 2, onIdle: () => idle++ }),
+        });
+        try {
+            job.trigger();
+            await job.whenIdle();
+            assert.equal(idle, 1);
+            // a pass with nothing to do goes idle too
+            job.trigger();
+            await job.whenIdle();
+            assert.equal(idle, 2);
+        } finally {
+            await db.close();
+        }
+    });
+
+    it('is called once, not twice, when a trigger arrives mid-pass', async () => {
+        const passes: number[] = [];
+        const passesAtIdle: number[] = [];
+        const { db, job } = await createTestApp({
+            perceptualHashing: db => createPerceptualHashJob(db, {
+                workers: 2,
+                onPassEnd: handled => passes.push(handled),
+                onIdle: () => passesAtIdle.push(passes.length),
+            }),
+        });
+        try {
+            job.trigger();
+            job.trigger();
+            job.trigger();
+            await job.whenIdle();
+            assert.equal(passes.length, 2);
+            // once, after the extra pass rather than between the two
+            assert.deepEqual(passesAtIdle, [2]);
+        } finally {
+            await db.close();
+        }
+    });
+
+    it('is called after a failed pass', async () => {
+        let idle = 0;
+        const failing = { all: async () => { throw new Error('boom'); } };
+        const job = createPerceptualHashJob(failing, { workers: 1, onIdle: () => idle++ });
+        job.trigger();
+        await job.whenIdle();
+        assert.equal(job.status().state, 'failed');
+        assert.equal(idle, 1);
+    });
+
+    it('does not let a throwing callback break the job', async () => {
+        let idle = 0;
+        const { db, job } = await createTestApp({
+            perceptualHashing: db => createPerceptualHashJob(db, { workers: 2, onIdle: () => { idle++; throw new Error('callback failed'); } }),
+        });
+        try {
+            job.trigger();
+            await job.whenIdle();   // would reject if the callback's error escaped
+            assert.equal(idle, 1);
+            assert.equal(job.status().state, 'idle');
+            // the job still runs, and still calls it
+            job.trigger();
+            await job.whenIdle();
+            assert.equal(idle, 2);
+        } finally {
+            await db.close();
+        }
+    });
+});
+
 describe('perceptual hash job with files that change', () => {
     let app, db, job, tmp;
     const copy = (fixture: string) => fs.copyFile(path.join(FIXTURES_PATH, fixture), path.join(tmp, fixture));

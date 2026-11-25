@@ -7,7 +7,6 @@ interface localFileNode {
     is_video: boolean,
     imageURL: string;
     imageHash: string;
-    previewURL: string;
     source: string;
     directoryPath: string;
     size: number;

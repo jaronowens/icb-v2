@@ -15,6 +15,9 @@ import tagsRouter from './routes/tags';
 import { requireDatabase } from './routes/middleware';
 import { isValidDirectoryName, Directory } from './service/startupService';
 import { PerceptualHashJob } from './service/perceptualHashService';
+import { ThumbnailService } from './service/thumbnailService';
+import { ThumbnailJob } from './service/thumbnailJob';
+import { thumbnailFallback } from './routes/thumbnails';
 
 type DbStatus = 'starting' | 'ready' | 'failed';
 
@@ -23,6 +26,8 @@ type AppOptions = {
   directories: Directory[],
   ready: Promise<unknown>,
   perceptualHashing?: PerceptualHashJob,
+  thumbnails: ThumbnailService,
+  thumbnailJob?: ThumbnailJob,
 };
 
 /**
@@ -36,8 +41,12 @@ type AppOptions = {
  *   Until then `/media` and `/tags` answer 503 (see routes/middleware.ts), and `GET /status` reports the state.
  * - `perceptualHashing`: the background perceptual hash job (service/perceptualHashService.ts), if there is one.
  *   `GET /status` reports its progress and `POST /media` triggers it for new images. The caller starts it.
+ * - `thumbnails`: the thumbnail cache (service/thumbnailService.ts). `/thumbnails` serves its folder, and makes a
+ *   thumbnail on the first request for it.
+ * - `thumbnailJob`: the background job that makes thumbnails ahead of requests (service/thumbnailJob.ts), if there is one.
+ *   The caller starts it.
  */
-function createApp({ db, directories, ready, perceptualHashing }: AppOptions) {
+function createApp({ db, directories, ready, perceptualHashing, thumbnails, thumbnailJob }: AppOptions) {
   const validDirectories = directories.filter(directory => {
     if (!isValidDirectoryName(directory.name)) {
       console.error(`Skipping directory "${directory.name}" (${directory.path}): names may only contain letters, digits, - and _`);
@@ -71,6 +80,8 @@ function createApp({ db, directories, ready, perceptualHashing }: AppOptions) {
   app.locals.dbStatus = 'starting' as DbStatus;
   app.locals.dbError = null;
   app.locals.perceptualHashing = perceptualHashing;
+  app.locals.thumbnails = thumbnails;
+  app.locals.thumbnailJob = thumbnailJob;
   // The rejection handler also marks the promise as handled, so a failed startup is never an unhandled rejection
   ready.then(
     () => { app.locals.dbStatus = 'ready'; },
@@ -79,6 +90,11 @@ function createApp({ db, directories, ready, perceptualHashing }: AppOptions) {
       app.locals.dbError = err;
     },
   );
+
+  // Thumbnails: files already made are served statically, anything else falls through to the fallback, which makes
+  // it. Before the directory mounts: isValidDirectoryName rejects "thumbnails", so no directory can take this path.
+  app.use('/thumbnails', express.static(thumbnails.dir, { maxAge: '1y', immutable: true, index: false, fallthrough: true }));
+  app.use('/thumbnails', thumbnailFallback);
 
   // set up CDN
   validDirectories.forEach(directory => {
